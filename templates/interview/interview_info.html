@@ -1,0 +1,54 @@
+{% extends 'base.html' %}
+
+{% block title %}Interview System - AI Recruitment{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-8 animate-in">
+            <div class="glass-card p-5">
+                <div class="text-center mb-4">
+                    <div class="rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 80px; height: 80px; background: linear-gradient(135deg, #dbeafe, #bfdbfe);">
+                        <i class="fas fa-comments fa-2x text-primary"></i>
+                    </div>
+                    <h2 class="fw-bold gradient-text">AI Interview System</h2>
+                    <p class="text-muted">Automated interview processing with AI evaluation</p>
+                </div>
+                
+                <div class="mt-4">
+                    <h5 class="fw-bold mb-3">How It Works</h5>
+                    <div class="d-flex mb-3">
+                        <div class="flex-shrink-0"><span class="badge bg-primary rounded-pill">1</span></div>
+                        <div class="ms-3"><p class="mb-0">Shortlisted candidates receive an email with a unique interview link</p></div>
+                    </div>
+                    <div class="d-flex mb-3">
+                        <div class="flex-shrink-0"><span class="badge bg-primary rounded-pill">2</span></div>
+                        <div class="ms-3"><p class="mb-0">Candidates complete a 5-question AI-generated interview within 3 days</p></div>
+                    </div>
+                    <div class="d-flex mb-3">
+                        <div class="flex-shrink-0"><span class="badge bg-primary rounded-pill">3</span></div>
+                        <div class="ms-3"><p class="mb-0">Answers are evaluated using keyword matching and NLP techniques</p></div>
+                    </div>
+                    <div class="d-flex mb-3">
+                        <div class="flex-shrink-0"><span class="badge bg-primary rounded-pill">4</span></div>
+                        <div class="ms-3"><p class="mb-0">Voice analysis measures confidence, pitch, and energy levels</p></div>
+                    </div>
+                    <div class="d-flex">
+                        <div class="flex-shrink-0"><span class="badge bg-primary rounded-pill">5</span></div>
+                        <div class="ms-3"><p class="mb-0">Facial emotion detection analyzes candidate demeanor during video</p></div>
+                    </div>
+                </div>
+                
+                <div class="mt-4 p-3 rounded" style="background: #f0f9ff;">
+                    <h6 class="fw-bold text-primary"><i class="fas fa-lightbulb me-2"></i>Evaluation Criteria</h6>
+                    <ul class="mb-0 text-muted">
+                        <li>Keyword relevance in answers (60% weight)</li>
+                        <li>Voice confidence score (20% weight)</li>
+                        <li>Emotion analysis (20% weight)</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,80 @@
+{% extends 'base.html' %}
+
+{% block title %}Emotion Detection - AI Recruitment{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-8 animate-in">
+            <div class="glass-card p-5">
+                <div class="text-center mb-4">
+                    <div class="rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 80px; height: 80px; background: linear-gradient(135deg, #fef3c7, #fde68a);">
+                        <i class="fas fa-smile fa-2x text-warning"></i>
+                    </div>
+                    <h2 class="fw-bold gradient-text">Emotion Detection</h2>
+                    <p class="text-muted">Facial emotion analysis during interviews</p>
+                </div>
+                
+                <div class="mt-4">
+                    <h5 class="fw-bold mb-3">Technologies Used</h5>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <div class="p-3 rounded border h-100">
+                                <h6 class="fw-bold text-warning"><i class="fas fa-brain me-2"></i>DeepFace</h6>
+                                <p class="small text-muted mb-0">Deep learning facial analysis framework for emotion recognition.</p>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="p-3 rounded border h-100">
+                                <h6 class="fw-bold text-warning"><i class="fas fa-camera me-2"></i>OpenCV</h6>
+                                <p class="small text-muted mb-0">Computer vision library for video frame capture and processing.</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <h5 class="fw-bold mb-3 mt-4">Detected Emotions</h5>
+                    <div class="d-flex flex-wrap gap-2">
+                        <span class="badge bg-success px-3 py-2">Happy</span>
+                        <span class="badge bg-primary px-3 py-2">Surprise</span>
+                        <span class="badge bg-secondary px-3 py-2">Neutral</span>
+                        <span class="badge bg-danger px-3 py-2">Angry</span>
+                        <span class="badge bg-warning px-3 py-2">Fear</span>
+                        <span class="badge bg-info px-3 py-2">Sad</span>
+                        <span class="badge bg-dark px-3 py-2">Disgust</span>
+                    </div>
+                    
+                    <h5 class="fw-bold mb-3 mt-4">Analysis Categories</h5>
+                    <div class="row g-3">
+                        <div class="col-md-4">
+                            <div class="p-3 rounded border text-center">
+                                <i class="fas fa-smile-beam fa-2x text-success mb-2"></i>
+                                <h6 class="fw-bold">Positive</h6>
+                                <p class="small text-muted mb-0">Happy, Surprise</p>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="p-3 rounded border text-center">
+                                <i class="fas fa-meh fa-2x text-secondary mb-2"></i>
+                                <h6 class="fw-bold">Neutral</h6>
+                                <p class="small text-muted mb-0">Neutral expression</p>
+                            </div>
+                        </div>
+                        <div class="col-md-4">
+                            <div class="p-3 rounded border text-center">
+                                <i class="fas fa-frown fa-2x text-danger mb-2"></i>
+                                <h6 class="fw-bold">Negative</h6>
+                                <p class="small text-muted mb-0">Angry, Sad, Fear, Disgust</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="mt-4 p-3 rounded" style="background: #fffbeb;">
+                    <h6 class="fw-bold text-warning"><i class="fas fa-shield-alt me-2"></i>Privacy Note</h6>
+                    <p class="mb-0 text-muted small">Video data is processed in real-time and not stored permanently. Only emotion statistics and aggregate scores are saved for evaluation purposes.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

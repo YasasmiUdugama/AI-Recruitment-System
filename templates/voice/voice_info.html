@@ -1,0 +1,89 @@
+{% extends 'base.html' %}
+
+{% block title %}Voice Analysis - AI Recruitment{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-8 animate-in">
+            <div class="glass-card p-5">
+                <div class="text-center mb-4">
+                    <div class="rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 80px; height: 80px; background: linear-gradient(135deg, #cffafe, #a5f3fc);">
+                        <i class="fas fa-microphone fa-2x text-info"></i>
+                    </div>
+                    <h2 class="fw-bold gradient-text">Voice Analysis</h2>
+                    <p class="text-muted">Speech-to-text and voice feature analysis</p>
+                </div>
+                
+                <div class="mt-4">
+                    <h5 class="fw-bold mb-3">Technologies Used</h5>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <div class="p-3 rounded border h-100">
+                                <h6 class="fw-bold text-info"><i class="fas fa-waveform me-2"></i>OpenAI Whisper</h6>
+                                <p class="small text-muted mb-0">State-of-the-art speech recognition for accurate transcription of candidate responses.</p>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="p-3 rounded border h-100">
+                                <h6 class="fw-bold text-info"><i class="fas fa-music me-2"></i>Librosa</h6>
+                                <p class="small text-muted mb-0">Audio analysis library for extracting pitch, energy, tempo, and spectral features.</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <h5 class="fw-bold mb-3 mt-4">Voice Features Analyzed</h5>
+                    <div class="row g-2">
+                        <div class="col-md-6">
+                            <div class="d-flex align-items-center p-2 rounded bg-light">
+                                <i class="fas fa-volume-up text-info me-3"></i>
+                                <div>
+                                    <strong>Average Pitch</strong>
+                                    <p class="small text-muted mb-0">Voice frequency analysis</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="d-flex align-items-center p-2 rounded bg-light">
+                                <i class="fas fa-bolt text-warning me-3"></i>
+                                <div>
+                                    <strong>Energy Level</strong>
+                                    <p class="small text-muted mb-0">Voice intensity and power</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="d-flex align-items-center p-2 rounded bg-light">
+                                <i class="fas fa-tachometer-alt text-success me-3"></i>
+                                <div>
+                                    <strong>Speaking Tempo</strong>
+                                    <p class="small text-muted mb-0">Words per minute rate</p>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="d-flex align-items-center p-2 rounded bg-light">
+                                <i class="fas fa-brain text-primary me-3"></i>
+                                <div>
+                                    <strong>Confidence Score</strong>
+                                    <p class="small text-muted mb-0">Overall confidence rating</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="mt-4 p-3 rounded" style="background: #ecfeff;">
+                    <h6 class="fw-bold text-info"><i class="fas fa-headphones me-2"></i>Recording Tips</h6>
+                    <ul class="mb-0 text-muted small">
+                        <li>Use a quiet environment</li>
+                        <li>Speak clearly and at a moderate pace</li>
+                        <li>Keep microphone 6-12 inches from mouth</li>
+                        <li>Avoid background noise</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

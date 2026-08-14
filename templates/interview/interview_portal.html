@@ -1,0 +1,857 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Interview - {{ candidate.full_name }}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #2563eb;
+            --secondary: #64748b;
+            --success: #16a34a;
+            --danger: #dc2626;
+            --warning: #f59e0b;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+            min-height: 100vh;
+            color: #e2e8f0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        .interview-container {
+            max-width: 900px;
+            margin: 0 auto;
+            padding: 2rem;
+        }
+        
+        .interview-header {
+            text-align: center;
+            margin-bottom: 2rem;
+            padding: 2rem;
+            background: rgba(255,255,255,0.05);
+            border-radius: 20px;
+            backdrop-filter: blur(10px);
+        }
+        
+        .interview-header h1 {
+            background: linear-gradient(135deg, #60a5fa, #a78bfa);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-weight: 700;
+        }
+        
+        .question-card {
+            background: rgba(255,255,255,0.08);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 20px;
+            padding: 2rem;
+            margin-bottom: 2rem;
+            display: none;
+        }
+        
+        .question-card.active {
+            display: block;
+            animation: fadeIn 0.5s ease;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .question-number {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, var(--primary), #7c3aed);
+            font-weight: 700;
+            margin-bottom: 1rem;
+        }
+        
+        .question-text {
+            font-size: 1.3rem;
+            font-weight: 600;
+            margin-bottom: 1.5rem;
+            color: #f1f5f9;
+        }
+        
+        .btn-record {
+            background: linear-gradient(135deg, #dc2626, #b91c1c);
+            color: white;
+            border: none;
+            border-radius: 50px;
+            padding: 1rem 2.5rem;
+            font-weight: 600;
+            font-size: 1.1rem;
+            transition: all 0.3s ease;
+            min-width: 200px;
+        }
+        
+        .btn-record:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 20px rgba(220, 38, 38, 0.4);
+        }
+        
+        .btn-record.recording {
+            animation: pulse 1.5s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.4); }
+            50% { box-shadow: 0 0 0 20px rgba(220, 38, 38, 0); }
+        }
+        
+        .btn-next {
+            background: linear-gradient(135deg, var(--primary), #7c3aed);
+            color: white;
+            border: none;
+            border-radius: 50px;
+            padding: 0.8rem 2.5rem;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-next:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 20px rgba(37, 99, 235, 0.4);
+        }
+        
+        .btn-next:disabled {
+            background: rgba(255,255,255,0.1);
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+        
+        .progress-container {
+            background: rgba(255,255,255,0.05);
+            border-radius: 15px;
+            padding: 1rem;
+            margin-bottom: 2rem;
+        }
+        
+        .progress {
+            height: 10px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 10px;
+        }
+        
+        .progress-bar {
+            background: linear-gradient(90deg, #60a5fa, #a78bfa);
+            border-radius: 10px;
+            transition: width 0.5s ease;
+        }
+        
+        .step-indicator {
+            display: flex;
+            justify-content: center;
+            gap: 0.5rem;
+            margin-top: 1rem;
+        }
+        
+        .step-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: rgba(255,255,255,0.2);
+            transition: all 0.3s ease;
+        }
+        
+        .step-dot.completed {
+            background: linear-gradient(135deg, #10b981, #059669);
+        }
+        
+        .step-dot.current {
+            background: linear-gradient(135deg, #60a5fa, #a78bfa);
+            box-shadow: 0 0 10px rgba(96, 165, 250, 0.5);
+        }
+        
+        .camera-feed {
+            width: 200px;
+            height: 150px;
+            border-radius: 12px;
+            background: rgba(0,0,0,0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid rgba(255,255,255,0.1);
+        }
+        
+        .camera-feed video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: 12px;
+        }
+        
+        .transcription-box {
+            background: rgba(15, 23, 42, 0.8);
+            border-radius: 12px;
+            padding: 1rem;
+            margin-top: 1rem;
+            border: 1px solid rgba(255,255,255,0.1);
+            max-height: 150px;
+            overflow-y: auto;
+        }
+        
+        .timer {
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: #fbbf24;
+        }
+        
+        .recording-indicator {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            color: #f87171;
+            font-weight: 600;
+        }
+        
+        .recording-dot {
+            width: 10px;
+            height: 10px;
+            background: #ef4444;
+            border-radius: 50%;
+            animation: blink 1s infinite;
+        }
+        
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+        
+        .audio-only-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: rgba(37, 99, 235, 0.2);
+            border: 1px solid rgba(37, 99, 235, 0.3);
+            color: #60a5fa;
+            padding: 0.5rem 1rem;
+            border-radius: 50px;
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+        
+        .answer-display {
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid rgba(255,255,255,0.1);
+            border-radius: 12px;
+            padding: 1rem;
+            min-height: 80px;
+            color: #94a3b8;
+            font-style: italic;
+        }
+        
+        .answer-display.has-content {
+            color: #e2e8f0;
+            font-style: normal;
+        }
+        
+        .mic-icon-large {
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .status-message {
+            padding: 0.75rem 1rem;
+            border-radius: 10px;
+            margin-top: 1rem;
+            font-size: 0.9rem;
+        }
+        
+        .status-message.info {
+            background: rgba(37, 99, 235, 0.15);
+            border: 1px solid rgba(37, 99, 235, 0.3);
+            color: #60a5fa;
+        }
+        
+        .status-message.success {
+            background: rgba(16, 185, 129, 0.15);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+            color: #34d399;
+        }
+
+        .score-circle {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            font-weight: 700;
+            color: #fff;
+            margin: 0 auto;
+        }
+
+        .score-circle.score-high {
+            background: linear-gradient(135deg, #10b981, #059669);
+            box-shadow: 0 0 20px rgba(16, 185, 129, 0.4);
+        }
+
+        .score-circle.score-medium {
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+            box-shadow: 0 0 20px rgba(245, 158, 11, 0.4);
+        }
+
+        .score-circle.score-low {
+            background: linear-gradient(135deg, #dc2626, #b91c1c);
+            box-shadow: 0 0 20px rgba(220, 38, 38, 0.4);
+        }
+
+        .score-breakdown {
+            background: rgba(255,255,255,0.05);
+            border-radius: 15px;
+            padding: 1.5rem;
+            margin-top: 1.5rem;
+        }
+
+        .score-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.5rem 0;
+            border-bottom: 1px solid rgba(255,255,255,0.1);
+        }
+
+        .score-item:last-child {
+            border-bottom: none;
+        }
+
+        .debug-info {
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            border-radius: 10px;
+            padding: 1rem;
+            margin-top: 1rem;
+            font-size: 0.85rem;
+            color: #fca5a5;
+            text-align: left;
+        }
+    </style>
+</head>
+<body>
+    <div class="interview-container">
+        <!-- Header -->
+        <div class="interview-header">
+            <h1><i class="fas fa-robot me-3"></i>AI Interview</h1>
+            <p class="mb-2">Welcome, <strong>{{ candidate.full_name }}</strong></p>
+            <p class="text-muted small mb-3">Position: {{ candidate.applied_job.title }}</p>
+            <div class="audio-only-badge">
+                <i class="fas fa-microphone-lines"></i>
+                Audio-Only Interview Mode
+            </div>
+        </div>
+
+        <!-- Progress -->
+        <div class="progress-container">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <span class="small text-muted">Question <span id="currentQ">1</span> of <span id="totalQ">5</span></span>
+                <span class="timer"><i class="fas fa-clock me-1"></i><span id="timer">00:00</span></span>
+            </div>
+            <div class="progress">
+                <div class="progress-bar" id="progressBar" style="width: 0%"></div>
+            </div>
+            <div class="step-indicator" id="stepIndicator"></div>
+        </div>
+
+        <!-- Video Preview -->
+        <div class="d-flex justify-content-end mb-3">
+            <div class="camera-feed">
+                <video id="cameraPreview" autoplay muted playsinline></video>
+                <i class="fas fa-video-slash fa-2x text-muted" id="cameraOff" style="display: none;"></i>
+            </div>
+        </div>
+
+        <!-- Questions -->
+        <div id="questionsContainer"></div>
+
+        <!-- Results -->
+        <div id="resultsCard" class="question-card text-center" style="display: none;">
+            <i class="fas fa-check-circle fa-4x text-success mb-3"></i>
+            <h3>Interview Completed!</h3>
+            <p class="text-muted">Thank you for completing the interview. Your responses have been recorded.</p>
+            
+            <div id="finalScore" class="my-4"></div>
+            
+            <div class="score-breakdown" id="scoreBreakdown" style="display: none;">
+                <h5 class="mb-3">Performance Breakdown</h5>
+                <div class="score-item">
+                    <span><i class="fas fa-key me-2 text-primary"></i>Content Quality</span>
+                    <span class="fw-bold" id="keywordScore">-</span>
+                </div>
+                <div class="score-item">
+                    <span><i class="fas fa-bullseye me-2 text-warning"></i>Confidence</span>
+                    <span class="fw-bold" id="confidenceScore">-</span>
+                </div>
+                <div class="score-item">
+                    <span><i class="fas fa-award me-2 text-success"></i>Recommendation</span>
+                    <span class="fw-bold" id="recommendation">-</span>
+                </div>
+            </div>
+
+            <div class="debug-info" id="debugInfo" style="display: none;"></div>
+            
+            <p class="small text-muted mt-4">You may now close this window. HR will contact you with the results.</p>
+        </div>
+    </div>
+
+    <script>
+        const questions = [
+            { id: 0, text: "Tell me about your relevant experience and skills for this position." },
+            { id: 1, text: "What technical skills do you possess that are relevant to this role?" },
+            { id: 2, text: "Describe a challenging project you worked on and how you handled it." },
+            { id: 3, text: "Why are you interested in this position and what motivates you?" },
+            { id: 4, text: "How do you handle pressure and tight deadlines?" }
+        ];
+
+        let currentQuestion = 0;
+        let mediaRecorder = null;
+        let audioChunks = [];
+        let isRecording = false;
+        let timerInterval = null;
+        let seconds = 0;
+        let recordedAnswers = {};
+
+        let cameraStream = null;
+        let videoRecorder = null;
+        let videoChunks = [];
+
+        document.addEventListener('DOMContentLoaded', function() {
+            renderQuestions();
+            setupCamera();
+            updateProgress();
+        });
+
+        function renderQuestions() {
+            const container = document.getElementById('questionsContainer');
+            const indicator = document.getElementById('stepIndicator');
+            document.getElementById('totalQ').textContent = questions.length;
+            
+            questions.forEach((q, i) => {
+                const card = document.createElement('div');
+                card.className = 'question-card' + (i === 0 ? ' active' : '');
+                card.id = 'question-' + i;
+                card.innerHTML = `
+                    <div class="question-number">${i + 1}</div>
+                    <div class="question-text">${q.text}</div>
+                    
+                    <div class="text-center mb-4">
+                        <button class="btn-record" id="recordBtn-${i}" onclick="toggleRecording(${i})">
+                            <div class="mic-icon-large"><i class="fas fa-microphone"></i></div>
+                            <span id="recordBtnText-${i}">Start Recording</span>
+                        </button>
+                        <div class="recording-indicator mt-3" id="recordingIndicator-${i}" style="display: none;">
+                            <span class="recording-dot"></span> Recording in progress...
+                        </div>
+                    </div>
+                    
+                    <div class="answer-section" id="answerSection-${i}" style="display: none;">
+                        <label class="small text-muted mb-2 d-block">
+                            <i class="fas fa-wave-square me-1"></i>Transcribed Answer:
+                        </label>
+                        <div class="answer-display" id="answerDisplay-${i}">
+                            <em class="text-muted">No answer recorded yet. Please use the microphone button above.</em>
+                        </div>
+                        <div class="transcription-box mt-2" id="transcriptionBox-${i}" style="display: none;">
+                            <strong><i class="fas fa-language me-2"></i>Full Transcription:</strong>
+                            <p class="mb-0 mt-1" id="transText-${i}"></p>
+                        </div>
+                    </div>
+                    
+                    <div class="status-message info" id="statusMsg-${i}">
+                        <i class="fas fa-info-circle me-2"></i>
+                        Please click the microphone button and speak your answer. Typing is not available in audio-only mode.
+                    </div>
+                    
+                    <div class="d-flex justify-content-between mt-4">
+                        ${i > 0 ? `<button class="btn btn-outline-light rounded-pill" onclick="prevQuestion(${i})">
+                            <i class="fas fa-arrow-left me-2"></i>Previous
+                        </button>` : '<div></div>'}
+                        
+                        ${i < questions.length - 1 ? 
+                            `<button class="btn-next" id="nextBtn-${i}" onclick="nextQuestion(${i})" disabled>
+                                Next <i class="fas fa-arrow-right ms-2"></i>
+                            </button>` :
+                            `<button class="btn-next" id="submitBtn-${i}" onclick="submitInterview()" disabled>
+                                <i class="fas fa-check me-2"></i>Submit Interview
+                            </button>`
+                        }
+                    </div>
+                `;
+                container.appendChild(card);
+                
+                const dot = document.createElement('div');
+                dot.className = 'step-dot' + (i === 0 ? ' current' : '');
+                dot.id = 'dot-' + i;
+                indicator.appendChild(dot);
+            });
+        }
+
+        async function setupCamera() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+                cameraStream = stream;
+                document.getElementById('cameraPreview').srcObject = stream;
+                document.getElementById('cameraOff').style.display = 'none';
+            } catch (err) {
+                console.log('Camera not available:', err);
+                document.getElementById('cameraOff').style.display = 'block';
+            }
+        }
+
+        function nextQuestion(current) {
+            document.getElementById('question-' + current).classList.remove('active');
+            currentQuestion++;
+            document.getElementById('question-' + currentQuestion).classList.add('active');
+            updateProgress();
+        }
+
+        function prevQuestion(current) {
+            document.getElementById('question-' + current).classList.remove('active');
+            currentQuestion--;
+            document.getElementById('question-' + currentQuestion).classList.add('active');
+            updateProgress();
+        }
+
+        function updateProgress() {
+            const progress = ((currentQuestion + 1) / questions.length) * 100;
+            document.getElementById('progressBar').style.width = progress + '%';
+            document.getElementById('currentQ').textContent = currentQuestion + 1;
+            
+            questions.forEach((_, i) => {
+                const dot = document.getElementById('dot-' + i);
+                dot.className = 'step-dot';
+                if (i < currentQuestion) dot.classList.add('completed');
+                if (i === currentQuestion) dot.classList.add('current');
+            });
+        }
+
+        async function toggleRecording(questionIndex) {
+            const btn = document.getElementById('recordBtn-' + questionIndex);
+            const btnText = document.getElementById('recordBtnText-' + questionIndex);
+            const indicator = document.getElementById('recordingIndicator-' + questionIndex);
+            const statusMsg = document.getElementById('statusMsg-' + questionIndex);
+            
+            if (!isRecording) {
+                try {
+                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    const preferredTypes = [
+                        'audio/webm;codecs=opus',
+                        'audio/webm',
+                        'audio/mp4',
+                        'audio/ogg;codecs=opus'
+                    ];
+                    const supportedType = preferredTypes.find(t => MediaRecorder.isTypeSupported(t));
+
+                    mediaRecorder = supportedType
+                        ? new MediaRecorder(stream, { mimeType: supportedType })
+                        : new MediaRecorder(stream);
+
+                    audioChunks = [];
+                    mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+                    mediaRecorder.onstop = () => processAudio(questionIndex);
+                    
+                    mediaRecorder.start();
+
+                    // Also record a video clip (webcam + mic) for this question, if the camera is available
+                    if (cameraStream && cameraStream.getVideoTracks().length > 0) {
+                        try {
+                            const combinedStream = new MediaStream([
+                                ...cameraStream.getVideoTracks(),
+                                ...stream.getAudioTracks()
+                            ]);
+                            const videoTypes = [
+                                'video/webm;codecs=vp9,opus',
+                                'video/webm;codecs=vp8,opus',
+                                'video/webm'
+                            ];
+                            const supportedVideoType = videoTypes.find(t => MediaRecorder.isTypeSupported(t));
+
+                            videoRecorder = supportedVideoType
+                                ? new MediaRecorder(combinedStream, { mimeType: supportedVideoType })
+                                : new MediaRecorder(combinedStream);
+
+                            videoChunks = [];
+                            videoRecorder.ondataavailable = e => { if (e.data.size > 0) videoChunks.push(e.data); };
+                            videoRecorder.onstop = () => uploadVideo(questionIndex);
+                            videoRecorder.start();
+                        } catch (videoErr) {
+                            console.log('Video recording not available:', videoErr);
+                            videoRecorder = null;
+                        }
+                    }
+
+                    isRecording = true;
+                    btnText.textContent = 'Stop Recording';
+                    btn.classList.add('recording');
+                    indicator.style.display = 'flex';
+                    statusMsg.className = 'status-message info';
+                    statusMsg.innerHTML = '<i class="fas fa-circle-info me-2"></i>Recording... Speak clearly into your microphone.';
+                    startTimer();
+                } catch (err) {
+                    alert('Could not access microphone. Please check permissions and ensure a microphone is connected.');
+                    console.error('Microphone error:', err);
+                }
+            } else {
+                mediaRecorder.stop();
+                mediaRecorder.stream.getTracks().forEach(t => t.stop());
+
+                if (videoRecorder && videoRecorder.state !== 'inactive') {
+                    videoRecorder.stop();
+                }
+
+                isRecording = false;
+                btnText.textContent = 'Start Recording';
+                btn.classList.remove('recording');
+                indicator.style.display = 'none';
+                stopTimer();
+            }
+        }
+
+        function startTimer() {
+            seconds = 0;
+            timerInterval = setInterval(() => {
+                seconds++;
+                const mins = Math.floor(seconds / 60).toString().padStart(2, '0');
+                const secs = (seconds % 60).toString().padStart(2, '0');
+                document.getElementById('timer').textContent = `${mins}:${secs}`;
+            }, 1000);
+        }
+
+        function stopTimer() {
+            clearInterval(timerInterval);
+            document.getElementById('timer').textContent = '00:00';
+        }
+
+        async function processAudio(questionIndex) {
+            const actualMimeType = mediaRecorder.mimeType || 'audio/webm';
+            const audioBlob = new Blob(audioChunks, { type: actualMimeType });
+            const fileExtension = actualMimeType.includes('mp4') ? 'mp4'
+                : actualMimeType.includes('ogg') ? 'ogg'
+                : 'webm';
+
+            const answerSection = document.getElementById('answerSection-' + questionIndex);
+            const answerDisplay = document.getElementById('answerDisplay-' + questionIndex);
+            const transBox = document.getElementById('transcriptionBox-' + questionIndex);
+            const transText = document.getElementById('transText-' + questionIndex);
+            const statusMsg = document.getElementById('statusMsg-' + questionIndex);
+            const nextBtn = document.getElementById('nextBtn-' + questionIndex) || document.getElementById('submitBtn-' + questionIndex);
+            
+            answerSection.style.display = 'block';
+            answerDisplay.innerHTML = '<em class="text-muted"><i class="fas fa-spinner fa-spin me-2"></i>Processing speech-to-text...</em>';
+            answerDisplay.classList.remove('has-content');
+            
+            const formData = new FormData();
+            formData.append('audio', audioBlob, `recording.${fileExtension}`);
+            
+            try {
+                const response = await fetch('/voice/transcribe/', {
+                    method: 'POST',
+                    body: formData,
+                    headers: { 'X-CSRFToken': getCookie('csrftoken') }
+                });
+                const data = await response.json();
+                
+                if (data.success && data.transcription) {
+                    const transcription = data.transcription;
+                    
+                    recordedAnswers[questionIndex] = {
+                        question_id: questions[questionIndex].id,
+                        question_text: questions[questionIndex].text,
+                        answer_text: transcription,
+                        audio_blob: audioBlob
+                    };
+                    
+                    answerDisplay.textContent = transcription;
+                    answerDisplay.classList.add('has-content');
+                    
+                    transText.textContent = transcription;
+                    transBox.style.display = 'block';
+                    
+                    statusMsg.className = 'status-message success';
+                    statusMsg.innerHTML = '<i class="fas fa-check-circle me-2"></i>Answer recorded successfully! You can proceed to the next question.';
+                    
+                    nextBtn.disabled = false;
+                    
+                } else {
+                    answerDisplay.innerHTML = '<em class="text-danger"><i class="fas fa-exclamation-triangle me-2"></i>Transcription failed. Please try recording again.</em>';
+                    statusMsg.className = 'status-message info';
+                    statusMsg.innerHTML = '<i class="fas fa-redo me-2"></i>Please click the microphone button and try speaking your answer again.';
+                }
+            } catch (err) {
+                answerDisplay.innerHTML = '<em class="text-danger"><i class="fas fa-exclamation-triangle me-2"></i>Server error. Please try recording again.</em>';
+                statusMsg.className = 'status-message info';
+                statusMsg.innerHTML = '<i class="fas fa-redo me-2"></i>Please click the microphone button and try speaking your answer again.';
+                console.error('Transcription error:', err);
+            }
+        }
+
+        async function uploadVideo(questionIndex) {
+            if (!videoChunks.length) return;
+
+            const actualMimeType = videoRecorder.mimeType || 'video/webm';
+            const videoBlob = new Blob(videoChunks, { type: actualMimeType });
+            const fileExtension = actualMimeType.includes('mp4') ? 'mp4' : 'webm';
+
+            const formData = new FormData();
+            formData.append('video', videoBlob, `answer-${questionIndex}.${fileExtension}`);
+            formData.append('interview_id', "{{ interview.id|escapejs }}");
+            formData.append('question_index', questionIndex);
+            formData.append('question_text', questions[questionIndex].text);
+
+            try {
+                const response = await fetch('/interview/upload-video/', {
+                    method: 'POST',
+                    body: formData,
+                    headers: { 'X-CSRFToken': getCookie('csrftoken') }
+                });
+                const data = await response.json();
+                if (!data.success) {
+                    console.error('Video upload failed:', data.error);
+                }
+            } catch (err) {
+                console.error('Video upload error:', err);
+            }
+        }
+
+        async function submitInterview() {
+            const answers = questions.map((q, i) => ({
+                question_id: q.id,
+                question_text: q.text,
+                answer_text: recordedAnswers[i]?.answer_text || ''
+            }));
+
+            console.log('Submitting answers:', answers);
+            
+            const submitBtn = document.getElementById('submitBtn-' + (questions.length - 1));
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Submitting...';
+            }
+            
+            try {
+                const requestBody = {
+                    interview_id: parseInt("{{ interview.id|escapejs }}", 10),
+                    answers: answers
+                };
+                console.log('Request body:', JSON.stringify(requestBody));
+
+                const response = await fetch('/interview/complete/', {
+                    method: 'POST',
+                    body: JSON.stringify(requestBody),
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': getCookie('csrftoken')
+                    }
+                });
+
+                console.log('Response status:', response.status);
+                
+                const responseText = await response.text();
+                console.log('Raw response:', responseText);
+                
+                let data;
+                try {
+                    data = JSON.parse(responseText);
+                } catch (e) {
+                    console.error('Failed to parse JSON:', e);
+                    throw new Error('Server returned invalid JSON: ' + responseText.substring(0, 200));
+                }
+
+                console.log('Parsed data:', data);
+                
+                document.querySelectorAll('.question-card').forEach(c => c.style.display = 'none');
+                document.querySelector('.progress-container').style.display = 'none';
+                document.querySelector('.camera-feed').style.display = 'none';
+                document.getElementById('resultsCard').style.display = 'block';
+                
+                if (data.success && data.evaluation) {
+                    const evaluation = data.evaluation;
+                    const scoreClass = evaluation.overall_score >= 60 ? 'high' : evaluation.overall_score >= 30 ? 'medium' : 'low';
+                    
+                    document.getElementById('finalScore').innerHTML = `
+                        <div class="score-circle score-${scoreClass}" style="width: 120px; height: 120px; font-size: 2.2rem;">
+                            ${evaluation.overall_score}
+                        </div>
+                        <p class="mt-2 text-muted">Overall Score (out of 100)</p>
+                    `;
+                    
+                    document.getElementById('scoreBreakdown').style.display = 'block';
+                    document.getElementById('keywordScore').textContent = evaluation.keyword_score_avg + '/100';
+                    document.getElementById('confidenceScore').textContent = evaluation.confidence_score_avg + '/100';
+                    
+                    const recBadge = evaluation.recommendation === 'recommended' 
+                        ? '<span class="badge bg-success">Recommended</span>'
+                        : '<span class="badge bg-secondary">Not Recommended</span>';
+                    document.getElementById('recommendation').innerHTML = recBadge;
+                    
+                } else {
+                    const debugDiv = document.getElementById('debugInfo');
+                    debugDiv.style.display = 'block';
+                    debugDiv.innerHTML = `
+                        <strong><i class="fas fa-bug me-2"></i>Debug Info:</strong><br>
+                        success: ${data.success}<br>
+                        error: ${data.error || 'None'}<br>
+                        evaluation: ${JSON.stringify(data.evaluation || null)}<br>
+                        <br>
+                        <em>Check browser console and server logs for more details.</em>
+                    `;
+                    
+                    document.getElementById('finalScore').innerHTML = `
+                        <p class="text-warning">
+                            <i class="fas fa-triangle-exclamation me-2"></i>
+                            ${data.error || data.message || 'Your answers were received, but scoring is still processing.'}
+                        </p>
+                    `;
+                }
+            } catch (err) {
+                console.error('Submit error:', err);
+                
+                document.querySelectorAll('.question-card').forEach(c => c.style.display = 'none');
+                document.querySelector('.progress-container').style.display = 'none';
+                document.querySelector('.camera-feed').style.display = 'none';
+                document.getElementById('resultsCard').style.display = 'block';
+                
+                const debugDiv = document.getElementById('debugInfo');
+                debugDiv.style.display = 'block';
+                debugDiv.innerHTML = `
+                    <strong><i class="fas fa-bug me-2"></i>Error:</strong><br>
+                    ${err.message}<br>
+                    <br>
+                    <em>Check browser console (F12) for details.</em>
+                `;
+                
+                document.getElementById('finalScore').innerHTML = `
+                    <p class="text-danger">
+                        <i class="fas fa-exclamation-circle me-2"></i>
+                        Error submitting interview: ${err.message}
+                    </p>
+                `;
+            }
+        }
+
+        function getCookie(name) {
+            let cookieValue = null;
+            if (document.cookie && document.cookie !== '') {
+                const cookies = document.cookie.split(';');
+                for (let i = 0; i < cookies.length; i++) {
+                    const cookie = cookies[i].trim();
+                    if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                        break;
+                    }
+                }
+            }
+            return cookieValue;
+        }
+    </script>
+</body>
+</html>

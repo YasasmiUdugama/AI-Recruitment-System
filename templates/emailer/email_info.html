@@ -1,0 +1,73 @@
+{% extends 'base.html' %}
+
+{% block title %}Email System - AI Recruitment{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-8 animate-in">
+            <div class="glass-card p-5">
+                <div class="text-center mb-4">
+                    <div class="rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 80px; height: 80px; background: linear-gradient(135deg, #dbeafe, #bfdbfe);">
+                        <i class="fas fa-envelope fa-2x text-primary"></i>
+                    </div>
+                    <h2 class="fw-bold gradient-text">Automated Email System</h2>
+                    <p class="text-muted">Send notifications and invitations automatically</p>
+                </div>
+                
+                <div class="mt-4">
+                    <h5 class="fw-bold mb-3">Email Types</h5>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <div class="p-3 rounded border h-100">
+                                <i class="fas fa-envelope-open-text text-primary me-2"></i>
+                                <strong>Interview Invitation</strong>
+                                <p class="small text-muted mb-0">Sent to shortlisted candidates with unique interview link</p>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="p-3 rounded border h-100">
+                                <i class="fas fa-bell text-warning me-2"></i>
+                                <strong>Interview Reminder</strong>
+                                <p class="small text-muted mb-0">Sent 24 hours before link expiration</p>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="p-3 rounded border h-100">
+                                <i class="fas fa-check-circle text-success me-2"></i>
+                                <strong>Selection Email</strong>
+                                <p class="small text-muted mb-0">Congratulations email for selected candidates</p>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="p-3 rounded border h-100">
+                                <i class="fas fa-times-circle text-danger me-2"></i>
+                                <strong>Rejection Email</strong>
+                                <p class="small text-muted mb-0">Polite rejection with appreciation</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <h5 class="fw-bold mb-3 mt-4">Configuration</h5>
+                    <p class="text-muted">Configure email settings in <code>settings.py</code> or via environment variables:</p>
+                    <pre class="bg-light p-3 rounded"><code>EMAIL_HOST_USER = 'your-email@gmail.com'
+EMAIL_HOST_PASSWORD = 'your-app-password'</code></pre>
+                    
+                    <h5 class="fw-bold mb-3 mt-4">Email Logs</h5>
+                    <p class="text-muted">All sent emails are logged in the system for tracking purposes. You can view the email log history from the admin panel or the email logs page.</p>
+                </div>
+                
+                <div class="mt-4 p-3 rounded" style="background: #eff6ff;">
+                    <h6 class="fw-bold text-primary"><i class="fas fa-cog me-2"></i>Setup Instructions</h6>
+                    <ol class="mb-0 text-muted small">
+                        <li>Enable 2-factor authentication on your Gmail account</li>
+                        <li>Generate an App Password at <a href="https://myaccount.google.com/apppasswords" target="_blank">Google Account Settings</a></li>
+                        <li>Set the EMAIL_HOST_USER and EMAIL_HOST_PASSWORD</li>
+                        <li>Test the email configuration</li>
+                    </ol>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

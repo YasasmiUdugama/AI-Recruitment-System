@@ -1,0 +1,213 @@
+{% extends 'base.html' %}
+
+{% block title %}Analytics - AI Recruitment System{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row mb-4 animate-in">
+        <div class="col-12">
+            <h1 class="display-5 fw-bold gradient-text">Analytics Dashboard</h1>
+            <p class="text-muted">Real-time insights into your recruitment process</p>
+        </div>
+    </div>
+
+    <!-- Summary Cards -->
+    <div class="row g-4 mb-4">
+        <div class="col-md-3 animate-in delay-1">
+            <div class="stat-card text-center">
+                <div class="stat-icon mx-auto" style="background: linear-gradient(135deg, #dbeafe, #bfdbfe); color: #2563eb;">
+                    <i class="fas fa-briefcase"></i>
+                </div>
+                <div class="stat-value">{{ total_jobs }}</div>
+                <div class="stat-label">Total Jobs</div>
+            </div>
+        </div>
+        <div class="col-md-3 animate-in delay-1">
+            <div class="stat-card text-center" style="border-left-color: #7c3aed;">
+                <div class="stat-icon mx-auto" style="background: linear-gradient(135deg, #ede9fe, #ddd6fe); color: #7c3aed;">
+                    <i class="fas fa-users"></i>
+                </div>
+                <div class="stat-value">{{ total_candidates }}</div>
+                <div class="stat-label">Total Candidates</div>
+            </div>
+        </div>
+        <div class="col-md-3 animate-in delay-2">
+            <div class="stat-card text-center" style="border-left-color: #059669;">
+                <div class="stat-icon mx-auto" style="background: linear-gradient(135deg, #d1fae5, #a7f3d0); color: #059669;">
+                    <i class="fas fa-star"></i>
+                </div>
+                <div class="stat-value">{{ shortlisted }}</div>
+                <div class="stat-label">Shortlisted</div>
+            </div>
+        </div>
+        <div class="col-md-3 animate-in delay-2">
+            <div class="stat-card text-center" style="border-left-color: #16a34a;">
+                <div class="stat-icon mx-auto" style="background: linear-gradient(135deg, #dcfce7, #bbf7d0); color: #16a34a;">
+                    <i class="fas fa-check-circle"></i>
+                </div>
+                <div class="stat-value">{{ selected }}</div>
+                <div class="stat-label">Selected</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Charts Row 1 -->
+    <div class="row g-4 mb-4">
+        <div class="col-lg-6 animate-in delay-3">
+            <div class="glass-card p-4">
+                <h5 class="fw-bold mb-4"><i class="fas fa-chart-pie me-2 text-primary"></i>Candidate Status Distribution</h5>
+                <div class="chart-container">
+                    <canvas id="statusChart"></canvas>
+                </div>
+            </div>
+        </div>
+        <div class="col-lg-6 animate-in delay-3">
+            <div class="glass-card p-4">
+                <h5 class="fw-bold mb-4"><i class="fas fa-chart-bar me-2 text-primary"></i>Top Jobs by Applicants</h5>
+                <div class="chart-container chart-container-scroll">
+                    <div id="jobsChartInner" class="chart-inner">
+                        <canvas id="jobsChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Charts Row 2 -->
+    <div class="row g-4 animate-in delay-4">
+        <div class="col-12">
+            <div class="glass-card p-4">
+                <h5 class="fw-bold mb-4"><i class="fas fa-chart-line me-2 text-primary"></i>Monthly Applications</h5>
+                <div class="chart-container chart-container-tall chart-container-scroll">
+                    <div id="monthlyChartInner" class="chart-inner">
+                        <canvas id="monthlyChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    /* Fixed-height wrappers so charts never grow taller as data increases.
+       position: relative is required for Chart.js's responsive resize logic. */
+    .chart-container {
+        position: relative;
+        height: 300px;
+        width: 100%;
+    }
+    .chart-container-tall {
+        height: 280px;
+    }
+    /* When there are many bars/points, we scroll horizontally inside the
+       fixed-height box instead of squishing labels or growing the card. */
+    .chart-container-scroll {
+        overflow-x: auto;
+        overflow-y: hidden;
+    }
+    .chart-inner {
+        position: relative;
+        height: 100%;
+        /* min-width is set dynamically in JS based on number of data points */
+        min-width: 100%;
+    }
+</style>
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Status Distribution Chart
+    const statusData = JSON.parse('{{ status_distribution|safe }}');
+    const statusLabels = statusData.map(d => d.status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()));
+    const statusValues = statusData.map(d => d.count);
+    const statusColors = ['#3b82f6', '#f59e0b', '#10b981', '#8b5cf6', '#06b6d4', '#16a34a', '#ef4444'];
+
+    new Chart(document.getElementById('statusChart'), {
+        type: 'doughnut',
+        data: {
+            labels: statusLabels,
+            datasets: [{
+                data: statusValues,
+                backgroundColor: statusColors,
+                borderWidth: 0
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {
+                    position: 'bottom',
+                    labels: { padding: 15, usePointStyle: true }
+                }
+            }
+        }
+    });
+
+    // Top Jobs Chart — width grows with the number of jobs, height stays fixed
+    const jobsData = JSON.parse('{{ top_jobs|safe }}');
+    const jobsMinWidth = Math.max(jobsData.length * 70, 100); // 70px per bar minimum
+    document.getElementById('jobsChartInner').style.minWidth = jobsMinWidth + 'px';
+
+    new Chart(document.getElementById('jobsChart'), {
+        type: 'bar',
+        data: {
+            labels: jobsData.map(j => j.title.length > 20 ? j.title.substring(0, 20) + '...' : j.title),
+            datasets: [{
+                label: 'Applicants',
+                data: jobsData.map(j => j.applicant_count),
+                backgroundColor: '#3b82f6',
+                borderRadius: 8,
+                maxBarThickness: 40
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: { beginAtZero: true, ticks: { stepSize: 1 } },
+                x: { ticks: { maxRotation: 45, autoSkip: false } }
+            },
+            plugins: {
+                legend: { display: false }
+            }
+        }
+    });
+
+    // Monthly Applications Chart — width grows with the number of months, height stays fixed
+    const monthlyData = JSON.parse('{{ monthly_data|safe }}');
+    const monthlyMinWidth = Math.max(monthlyData.length * 60, 100); // 60px per point minimum
+    document.getElementById('monthlyChartInner').style.minWidth = monthlyMinWidth + 'px';
+
+    new Chart(document.getElementById('monthlyChart'), {
+        type: 'line',
+        data: {
+            labels: monthlyData.map(m => {
+                const date = new Date(m.month);
+                return date.toLocaleDateString('en-US', { month: 'short', year: 'numeric' });
+            }),
+            datasets: [{
+                label: 'Applications',
+                data: monthlyData.map(m => m.count),
+                borderColor: '#3b82f6',
+                backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                fill: true,
+                tension: 0.4,
+                pointRadius: 5,
+                pointBackgroundColor: '#3b82f6'
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                y: { beginAtZero: true, ticks: { stepSize: 1 } }
+            },
+            plugins: {
+                legend: { display: false }
+            }
+        }
+    });
+});
+</script>
+{% endblock %}

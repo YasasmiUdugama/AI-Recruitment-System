@@ -1,0 +1,187 @@
+{% extends 'base.html' %}
+{% load custom_filters %}
+
+{% block title %}Dashboard - AI Recruitment System{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row mb-4 animate-in">
+        <div class="col-12">
+            <h1 class="display-5 fw-bold">
+                <span class="gradient-text">Dashboard</span>
+            </h1>
+            <p class="text-muted">Welcome to your AI-powered recruitment overview</p>
+        </div>
+    </div>
+
+    <div class="row g-4 mb-4">
+        <div class="col-md-4 col-lg-2 animate-in delay-1">
+            <div class="stat-card">
+                <div class="stat-icon" style="background: linear-gradient(135deg, #dbeafe, #bfdbfe); color: #2563eb;">
+                    <i class="fas fa-briefcase"></i>
+                </div>
+                <div class="stat-value">{{ total_jobs }}</div>
+                <div class="stat-label">Active Jobs</div>
+            </div>
+        </div>
+        <div class="col-md-4 col-lg-2 animate-in delay-1">
+            <div class="stat-card" style="border-left-color: #7c3aed;">
+                <div class="stat-icon" style="background: linear-gradient(135deg, #ede9fe, #ddd6fe); color: #7c3aed;">
+                    <i class="fas fa-users"></i>
+                </div>
+                <div class="stat-value">{{ total_candidates }}</div>
+                <div class="stat-label">Total Candidates</div>
+            </div>
+        </div>
+        <div class="col-md-4 col-lg-2 animate-in delay-2">
+            <div class="stat-card" style="border-left-color: #059669;">
+                <div class="stat-icon" style="background: linear-gradient(135deg, #d1fae5, #a7f3d0); color: #059669;">
+                    <i class="fas fa-star"></i>
+                </div>
+                <div class="stat-value">{{ shortlisted }}</div>
+                <div class="stat-label">Shortlisted</div>
+            </div>
+        </div>
+        <div class="col-md-4 col-lg-2 animate-in delay-2">
+            <div class="stat-card" style="border-left-color: #0891b2;">
+                <div class="stat-icon" style="background: linear-gradient(135deg, #cffafe, #a5f3fc); color: #0891b2;">
+                    <i class="fas fa-comments"></i>
+                </div>
+                <div class="stat-value">{{ completed_interviews }}</div>
+                <div class="stat-label">Interviews Done</div>
+            </div>
+        </div>
+        <div class="col-md-4 col-lg-2 animate-in delay-3">
+            <div class="stat-card" style="border-left-color: #16a34a;">
+                <div class="stat-icon" style="background: linear-gradient(135deg, #dcfce7, #bbf7d0); color: #16a34a;">
+                    <i class="fas fa-check-circle"></i>
+                </div>
+                <div class="stat-value">{{ selected }}</div>
+                <div class="stat-label">Selected</div>
+            </div>
+        </div>
+        <div class="col-md-4 col-lg-2 animate-in delay-3">
+            <div class="stat-card" style="border-left-color: #f59e0b;">
+                <div class="stat-icon" style="background: linear-gradient(135deg, #fef3c7, #fde68a); color: #d97706;">
+                    <i class="fas fa-percentage"></i>
+                </div>
+                <div class="stat-value">
+                    {% if total_candidates > 0 %}
+                        {{ selected|div:total_candidates|mul:100|floatformat:1 }}%
+                    {% else %}0%{% endif %}
+                </div>
+                <div class="stat-label">Selection Rate</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row mb-4">
+        <div class="col-12 animate-in delay-4">
+            <div class="glass-card p-4">
+                <h5 class="mb-3"><i class="fas fa-bolt me-2 text-warning"></i>Quick Actions</h5>
+                <div class="d-flex gap-3 flex-wrap">
+                    <a href="{% url 'job_create' %}" class="btn btn-gradient">
+                        <i class="fas fa-plus me-2"></i>New Job Posting
+                    </a>
+                    <a href="{% url 'candidate_upload' %}" class="btn btn-outline-gradient">
+                        <i class="fas fa-upload me-2"></i>Bulk Upload CVs
+                    </a>
+                    <a href="{% url 'analytics' %}" class="btn btn-outline-gradient">
+                        <i class="fas fa-chart-pie me-2"></i>View Analytics
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="row g-4">
+        <div class="col-lg-8 animate-in delay-4">
+            <div class="glass-card p-4 h-100">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h5 class="mb-0"><i class="fas fa-users me-2 text-primary"></i>Recent Candidates</h5>
+                    <a href="{% url 'candidate_list' %}" class="btn btn-sm btn-outline-primary">View All</a>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Job</th>
+                                <th>Score</th>
+                                <th>Status</th>
+                                <th>Date</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for candidate in recent_candidates %}
+                            <tr>
+                                <td>
+                                    <a href="{% url 'candidate_detail' candidate.id %}" class="text-decoration-none fw-semibold">
+                                        {{ candidate.full_name }}
+                                    </a>
+                                </td>
+                                <td>{{ candidate.applied_job.title|truncatechars:30 }}</td>
+                                <td>
+                                    <div class="d-flex align-items-center gap-2">
+                                        <div class="progress flex-grow-1" style="width: 60px;">
+                                            <div class="progress-bar" style="width: {{ candidate.similarity_score|mul:100 }}%"></div>
+                                        </div>
+                                        <span class="small">{{ candidate.similarity_score|floatformat:2 }}</span>
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="badge badge-{{ candidate.status }} rounded-pill px-3 py-2">
+                                        {{ candidate.status|title }}
+                                    </span>
+                                </td>
+                                <td class="text-muted small">{{ candidate.created_at|date:"M d, Y" }}</td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="5" class="text-center text-muted py-4">
+                                    <i class="fas fa-inbox fa-2x mb-2 d-block"></i>
+                                    No candidates yet. Start by uploading CVs!
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-lg-4 animate-in delay-4">
+            <div class="glass-card p-4 h-100">
+                <div class="d-flex justify-content-between align-items-center mb-4">
+                    <h5 class="mb-0"><i class="fas fa-briefcase me-2 text-primary"></i>Active Jobs</h5>
+                    <a href="{% url 'job_list' %}" class="btn btn-sm btn-outline-primary">View All</a>
+                </div>
+                {% for job in active_jobs %}
+                <div class="d-flex align-items-center p-3 mb-3 rounded hover-bg transition-all" style="background: #f8fafc;">
+                    <div class="flex-shrink-0">
+                        <div class="rounded-circle d-flex align-items-center justify-content-center" style="width: 45px; height: 45px; background: linear-gradient(135deg, #dbeafe, #bfdbfe);">
+                            <i class="fas fa-briefcase text-primary"></i>
+                        </div>
+                    </div>
+                    <div class="ms-3 flex-grow-1">
+                        <h6 class="mb-1 fw-semibold">{{ job.title|truncatechars:25 }}</h6>
+                        <div class="d-flex gap-3 text-muted small">
+                            <span><i class="fas fa-users me-1"></i>{{ job.candidates.count }} applicants</span>
+                            <span><i class="fas fa-calendar me-1"></i>{{ job.created_at|date:"M d" }}</span>
+                        </div>
+                    </div>
+                    <a href="{% url 'job_detail' job.id %}" class="btn btn-sm btn-light rounded-circle">
+                        <i class="fas fa-arrow-right text-primary"></i>
+                    </a>
+                </div>
+                {% empty %}
+                <div class="text-center text-muted py-4">
+                    <i class="fas fa-briefcase fa-2x mb-2 d-block"></i>
+                    No active jobs. Create one now!
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,23 @@
+{% extends 'base.html' %}
+
+{% block title %}Interview Portal{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-8 animate-in">
+            <div class="glass-card p-5 text-center">
+                <div class="rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 80px; height: 80px; background: linear-gradient(135deg, #dbeafe, #bfdbfe);">
+                    <i class="fas fa-video fa-2x text-primary"></i>
+                </div>
+                <h2 class="fw-bold gradient-text">Interview Portal</h2>
+                <p class="text-muted">Candidate: <strong>{{ interview.candidate.full_name }}</strong></p>
+                <p class="text-muted">Job: <strong>{{ interview.candidate.applied_job.title }}</strong></p>
+                <hr>
+                <p>This is a placeholder for the AI interview interface.</p>
+                <p class="small text-muted">Token: {{ interview.access_token }}</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

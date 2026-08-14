@@ -1,0 +1,78 @@
+{% extends 'base.html' %}
+
+{% block title %}Shortlisting - AI Recruitment{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-8 animate-in">
+            <div class="glass-card p-5">
+                <div class="text-center mb-4">
+                    <div class="rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 80px; height: 80px; background: linear-gradient(135deg, #d1fae5, #a7f3d0);">
+                        <i class="fas fa-star fa-2x text-success"></i>
+                    </div>
+                    <h2 class="fw-bold gradient-text">Candidate Shortlisting</h2>
+                    <p class="text-muted">Automated selection of top candidates</p>
+                </div>
+                
+                <div class="mt-4">
+                    <h5 class="fw-bold mb-3">How It Works</h5>
+                    <p class="text-muted">The shortlisting module automatically selects the best candidates based on their similarity scores from the ranking engine.</p>
+                    
+                    <div class="row g-3 mt-3">
+                        <div class="col-md-4 text-center">
+                            <div class="p-3 rounded border">
+                                <h4 class="text-primary fw-bold">1</h4>
+                                <h6 class="fw-bold">Threshold Filter</h6>
+                                <p class="small text-muted mb-0">Candidates must exceed minimum score</p>
+                            </div>
+                        </div>
+                        <div class="col-md-4 text-center">
+                            <div class="p-3 rounded border">
+                                <h4 class="text-primary fw-bold">2</h4>
+                                <h6 class="fw-bold">Top N Selection</h6>
+                                <p class="small text-muted mb-0">Select top N from filtered list</p>
+                            </div>
+                        </div>
+                        <div class="col-md-4 text-center">
+                            <div class="p-3 rounded border">
+                                <h4 class="text-primary fw-bold">3</h4>
+                                <h6 class="fw-bold">Status Update</h6>
+                                <p class="small text-muted mb-0">Mark as shortlisted automatically</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <h5 class="fw-bold mb-3 mt-4">Configuration Options</h5>
+                    <table class="table table-bordered">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Parameter</th>
+                                <th>Default</th>
+                                <th>Description</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Threshold</td>
+                                <td>0.01</td>
+                                <td>Minimum similarity score required</td>
+                            </tr>
+                            <tr>
+                                <td>Top N</td>
+                                <td>10</td>
+                                <td>Maximum number of candidates to shortlist</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+                
+                <div class="mt-4 p-3 rounded" style="background: #f0fdf4;">
+                    <h6 class="fw-bold text-success"><i class="fas fa-info-circle me-2"></i>Best Practices</h6>
+                    <p class="mb-0 text-muted">After ranking CVs, use the auto-shortlist feature to quickly identify the top 10 candidates. Adjust the threshold based on the quality of applicants.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,101 @@
+{% extends 'base.html' %}
+
+{% block title %}Edit Job - {{ job.title }}{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-8 animate-in">
+            <div class="glass-card p-4">
+                <div class="d-flex align-items-center mb-4">
+                    <a href="{% url 'job_detail' job.id %}" class="btn btn-light rounded-circle me-3">
+                        <i class="fas fa-arrow-left"></i>
+                    </a>
+                    <div>
+                        <h3 class="fw-bold gradient-text mb-0">Edit Job</h3>
+                        <p class="text-muted mb-0">Update job details</p>
+                    </div>
+                </div>
+
+                {% if form.errors %}
+                <div class="alert alert-danger">
+                    <strong><i class="fas fa-exclamation-circle me-2"></i>Please fix the errors below:</strong>
+                    <ul class="mb-0 mt-2">
+                        {% for field, errors in form.errors.items %}
+                            {% for error in errors %}
+                            <li>{{ field|title }}: {{ error }}</li>
+                            {% endfor %}
+                        {% endfor %}
+                    </ul>
+                </div>
+                {% endif %}
+
+                <form method="post">
+                    {% csrf_token %}
+
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Job Title</label>
+                            <input type="text" name="title" class="form-control {% if form.title.errors %}is-invalid{% endif %}" 
+                                   value="{{ form.title.value|default:job.title }}" required>
+                            {% if form.title.errors %}<div class="invalid-feedback">{{ form.title.errors.0 }}</div>{% endif %}
+                        </div>
+
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Job Description</label>
+                            <textarea name="description" class="form-control {% if form.description.errors %}is-invalid{% endif %}" rows="5" required>{{ form.description.value|default:job.description }}</textarea>
+                            {% if form.description.errors %}<div class="invalid-feedback">{{ form.description.errors.0 }}</div>{% endif %}
+                        </div>
+
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Required Skills</label>
+                            <textarea name="required_skills" class="form-control {% if form.required_skills.errors %}is-invalid{% endif %}" rows="3">{{ form.required_skills.value|default:job.required_skills }}</textarea>
+                            {% if form.required_skills.errors %}<div class="invalid-feedback">{{ form.required_skills.errors.0 }}</div>{% endif %}
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Experience Required</label>
+                            <input type="text" name="experience_required" class="form-control" 
+                                   value="{{ form.experience_required.value|default:job.experience_required }}">
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Education Required</label>
+                            <input type="text" name="education_required" class="form-control" 
+                                   value="{{ form.education_required.value|default:job.education_required }}">
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Department</label>
+                            <input type="text" name="department" class="form-control" 
+                                   value="{{ form.department.value|default:job.department }}">
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Location</label>
+                            <input type="text" name="location" class="form-control" 
+                                   value="{{ form.location.value|default:job.location }}">
+                        </div>
+
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Status</label>
+                            <select name="status" class="form-select">
+                                <option value="active" {% if form.status.value|default:job.status == 'active' %}selected{% endif %}>Active</option>
+                                <option value="closed" {% if form.status.value|default:job.status == 'closed' %}selected{% endif %}>Closed</option>
+                                <option value="draft" {% if form.status.value|default:job.status == 'draft' %}selected{% endif %}>Draft</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="d-flex gap-3 mt-4">
+                        <button type="submit" class="btn btn-gradient">
+                            <i class="fas fa-save me-2"></i>Update Job
+                        </button>
+                        <a href="{% url 'job_detail' job.id %}" class="btn btn-outline-secondary">Cancel</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

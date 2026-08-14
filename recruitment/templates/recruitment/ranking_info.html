@@ -1,0 +1,58 @@
+{% extends 'base.html' %}
+
+{% block title %}CV Ranking - AI Recruitment{% endblock %}
+
+{% block content %}
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-lg-8 animate-in">
+            <div class="glass-card p-5">
+                <div class="text-center mb-4">
+                    <div class="rounded-circle d-inline-flex align-items-center justify-content-center mb-3" style="width: 80px; height: 80px; background: linear-gradient(135deg, #ede9fe, #ddd6fe);">
+                        <i class="fas fa-sort-amount-down fa-2x text-primary"></i>
+                    </div>
+                    <h2 class="fw-bold gradient-text">CV Ranking Engine</h2>
+                    <p class="text-muted">TF-IDF and Cosine Similarity based ranking</p>
+                </div>
+
+                <div class="mt-4">
+                    <h5 class="fw-bold mb-3">Algorithm Overview</h5>
+                    <p class="text-muted">The ranking engine uses two powerful NLP techniques to match CVs against job descriptions:</p>
+
+                    <div class="row g-3 mt-3">
+                        <div class="col-md-6">
+                            <div class="p-3 rounded border h-100">
+                                <h6 class="fw-bold text-primary">TF-IDF Vectorization</h6>
+                                <p class="small text-muted mb-0">Term Frequency-Inverse Document Frequency converts text into numerical vectors, weighing important keywords higher.</p>
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <div class="p-3 rounded border h-100">
+                                <h6 class="fw-bold text-primary">Cosine Similarity</h6>
+                                <p class="small text-muted mb-0">Measures the cosine of the angle between two vectors, producing a similarity score from 0 to 1.</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <h5 class="fw-bold mb-3 mt-4">Features</h5>
+                    <ul class="text-muted">
+                        <li>Stop word removal for cleaner analysis</li>
+                        <li>Unigram and bigram support for context</li>
+                        <li>Automatic text preprocessing and cleaning</li>
+                        <li>Top keyword extraction for each CV</li>
+                        <li>Batch processing for large candidate pools</li>
+                    </ul>
+                </div>
+
+                <div class="mt-4 p-3 rounded" style="background: #f5f3ff;">
+                    <h6 class="fw-bold text-primary"><i class="fas fa-chart-line me-2"></i>Score Interpretation</h6>
+                    <p class="mb-1 small"><strong>0.0 - 0.2:</strong> Low match</p>
+                    <p class="mb-1 small"><strong>0.2 - 0.5:</strong> Moderate match</p>
+                    <p class="mb-1 small"><strong>0.5 - 0.8:</strong> Good match</p>
+                    <p class="mb-0 small"><strong>0.8 - 1.0:</strong> Excellent match</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

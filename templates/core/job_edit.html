@@ -1,0 +1,71 @@
+{% extends 'base.html' %}
+
+{% block title %}Edit Job - {{ job.title }}{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row justify-content-center">
+        <div class="col-lg-8 animate-in">
+            <div class="glass-card p-4">
+                <div class="d-flex align-items-center mb-4">
+                    <a href="{% url 'job_detail' job.id %}" class="btn btn-light rounded-circle me-3">
+                        <i class="fas fa-arrow-left"></i>
+                    </a>
+                    <div>
+                        <h3 class="fw-bold gradient-text mb-0">Edit Job</h3>
+                        <p class="text-muted mb-0">Update job details</p>
+                    </div>
+                </div>
+
+                <form method="post">
+                    {% csrf_token %}
+                    
+                    <div class="row g-3">
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Job Title</label>
+                            <input type="text" name="title" class="form-control" value="{{ job.title }}" required>
+                        </div>
+                        
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Job Description</label>
+                            <textarea name="description" class="form-control" rows="5" required>{{ job.description }}</textarea>
+                        </div>
+                        
+                        <div class="col-12">
+                            <label class="form-label fw-semibold">Required Skills</label>
+                            <textarea name="required_skills" class="form-control" rows="3">{{ job.required_skills }}</textarea>
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Experience Required</label>
+                            <input type="text" name="experience_required" class="form-control" value="{{ job.experience_required }}">
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Education Required</label>
+                            <input type="text" name="education_required" class="form-control" value="{{ job.education_required }}">
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Department</label>
+                            <input type="text" name="department" class="form-control" value="{{ job.department }}">
+                        </div>
+                        
+                        <div class="col-md-6">
+                            <label class="form-label fw-semibold">Location</label>
+                            <input type="text" name="location" class="form-control" value="{{ job.location }}">
+                        </div>
+                    </div>
+                    
+                    <div class="d-flex gap-3 mt-4">
+                        <button type="submit" class="btn btn-gradient">
+                            <i class="fas fa-save me-2"></i>Update Job
+                        </button>
+                        <a href="{% url 'job_detail' job.id %}" class="btn btn-outline-secondary">Cancel</a>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

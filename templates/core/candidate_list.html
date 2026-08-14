@@ -1,0 +1,138 @@
+{% extends 'base.html' %}
+{% load custom_filters %}
+
+{% block title %}Candidates - AI Recruitment System{% endblock %}
+
+{% block content %}
+<div class="container py-4">
+    <div class="row mb-4 animate-in">
+        <div class="col-md-8">
+            <h1 class="display-5 fw-bold gradient-text">Candidates</h1>
+            <p class="text-muted">View and manage all candidate applications</p>
+        </div>
+        <div class="col-md-4 text-md-end">
+            <a href="{% url 'candidate_upload' %}" class="btn btn-gradient">
+                <i class="fas fa-cloud-upload-alt me-2"></i>Upload CV
+            </a>
+        </div>
+    </div>
+
+    <!-- Filters -->
+    <div class="row mb-4 animate-in delay-1">
+        <div class="col-12">
+            <div class="glass-card p-3">
+                <form method="get" class="d-flex gap-3 flex-wrap align-items-end">
+                    <div>
+                        <label class="form-label small text-muted mb-1">Status</label>
+                        <select name="status" class="form-select form-select-sm" onchange="this.form.submit()">
+                            <option value="">All Statuses</option>
+                            <option value="new" {% if status_filter == 'new' %}selected{% endif %}>New</option>
+                            <option value="screening" {% if status_filter == 'screening' %}selected{% endif %}>Screening</option>
+                            <option value="shortlisted" {% if status_filter == 'shortlisted' %}selected{% endif %}>Shortlisted</option>
+                            <option value="interview_scheduled" {% if status_filter == 'interview_scheduled' %}selected{% endif %}>Interview Scheduled</option>
+                            <option value="interview_completed" {% if status_filter == 'interview_completed' %}selected{% endif %}>Interview Completed</option>
+                            <option value="selected" {% if status_filter == 'selected' %}selected{% endif %}>Selected</option>
+                            <option value="rejected" {% if status_filter == 'rejected' %}selected{% endif %}>Rejected</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="form-label small text-muted mb-1">Job</label>
+                        <select name="job" class="form-select form-select-sm" onchange="this.form.submit()">
+                            <option value="">All Jobs</option>
+                            {% for job in jobs %}
+                            <option value="{{ job.id }}" {% if job_filter == job.id|stringformat:"s" %}selected{% endif %}>{{ job.title|truncatechars:30 }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <a href="{% url 'candidate_list' %}" class="btn btn-sm btn-outline-secondary">Clear Filters</a>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Candidates Table -->
+    <div class="row animate-in delay-2">
+        <div class="col-12">
+            <div class="glass-card p-4">
+                <div class="table-responsive">
+                    <table class="table table-hover">
+                        <thead>
+                            <tr>
+                                <th>#</th>
+                                <th>Name</th>
+                                <th>Email</th>
+                                <th>Applied Job</th>
+                                <th>Similarity Score</th>
+                                <th>Status</th>
+                                <th>Skills</th>
+                                <th>Date</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for candidate in candidates %}
+                            <tr>
+                                <td>{{ forloop.counter }}</td>
+                                <td>
+                                    <a href="{% url 'candidate_detail' candidate.id %}" class="fw-semibold text-decoration-none">
+                                        {{ candidate.full_name }}
+                                    </a>
+                                </td>
+                                <td>{{ candidate.email }}</td>
+                                <td>{{ candidate.applied_job.title|truncatechars:25 }}</td>
+                                <td>
+                                    <div class="d-flex align-items-center gap-2">
+                                        <div class="progress" style="width: 60px; height: 8px;">
+                                            <div class="progress-bar" style="width: {% if candidate.similarity_score > 1 %}100{% else %}{{ candidate.similarity_score|mul:100 }}{% endif %}%"></div>
+                                        </div>
+                                        <span class="small">{{ candidate.similarity_score|floatformat:4 }}</span>
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class="badge badge-{{ candidate.status }} rounded-pill px-2 py-1">
+                                        {{ candidate.status|title }}
+                                    </span>
+                                </td>
+                                <td>
+                                    {% if candidate.skills %}
+                                        {% for skill in candidate.skills.split|slice:":3" %}
+                                            <span class="badge bg-light text-dark border me-1">{{ skill|cut:"," }}</span>
+                                        {% endfor %}
+                                        {% if candidate.skills.split|length > 3 %}
+                                            <span class="badge bg-light text-muted">+{{ candidate.skills.split|length|add:"-3" }}</span>
+                                        {% endif %}
+                                    {% else %}
+                                        <span class="text-muted">-</span>
+                                    {% endif %}
+                                </td>
+                                <td class="text-muted small">{{ candidate.created_at|date:"M d, Y" }}
+
+                                </td>
+                                <td>
+                                    <a href="{% url 'candidate_detail' candidate.id %}" class="btn btn-sm btn-light rounded-circle" title="View Details">
+                                        <i class="fas fa-eye text-primary"></i>
+                                    </a>
+                                    <a href="{% url 'candidate_edit' candidate.id %}" class="btn btn-sm btn-light rounded-circle" title="Edit">
+                                        <i class="fas fa-edit text-secondary"></i>
+                                    </a>
+                                    <a href="{% url 'candidate_delete' candidate.id %}" class="btn btn-sm btn-light rounded-circle" title="Delete">
+                                        <i class="fas fa-trash text-danger"></i>
+                                    </a>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="9" class="text-center text-muted py-5">
+                                    <i class="fas fa-inbox fa-2x mb-2 d-block"></i>
+                                    No candidates found.
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
