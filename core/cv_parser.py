@@ -29,12 +29,16 @@ except ImportError:
 logger = logging.getLogger('ai_recruitment')
 
 # Configure Tesseract path (update based on your system)
-TESSERACT_CMD = os.environ.get('TESSERACT_CMD', r'D:\Apps\HR Recruitment\Tesseract\tesseract.exe')
+TESSERACT_CMD = os.environ.get(
+    'TESSERACT_CMD',
+    r'D:\HR Recruitment System\Tesseract\tesseract.exe'
+)
 if OCR_AVAILABLE:
     pytesseract.pytesseract.tesseract_cmd = TESSERACT_CMD
-
-POPPLER_PATH = os.environ.get('POPPLER_PATH', r'D:\Apps\HR Recruitment\poppler-26.02.0\Library\bin')
-
+POPPLER_PATH = os.environ.get(
+    'POPPLER_PATH',
+    r'D:\HR Recruitment System\poppler-26.02.0\Library\bin'
+)
 print(f"DEBUG STARTUP: PYPDF2_AVAILABLE={PYPDF2_AVAILABLE}, OCR_AVAILABLE={OCR_AVAILABLE}, TESSERACT_CMD={TESSERACT_CMD}, POPPLER_PATH={POPPLER_PATH}")
 
 # Valid TLDs for email cleanup

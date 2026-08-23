@@ -26,11 +26,17 @@ except ImportError:
 
 logger = logging.getLogger('ai_recruitment')
 
-TESSERACT_CMD = os.environ.get('TESSERACT_CMD', 'tesseract')
+TESSERACT_CMD = os.environ.get(
+    'TESSERACT_CMD',
+    r'D:\HR Recruitment System\Tesseract\tesseract.exe'
+)
 if OCR_AVAILABLE:
     pytesseract.pytesseract.tesseract_cmd = TESSERACT_CMD
 
-POPPLER_PATH = os.environ.get('POPPLER_PATH', None)
+POPPLER_PATH = os.environ.get(
+    'POPPLER_PATH',
+    r'D:\HR Recruitment System\poppler-26.02.0\Library\bin'
+)
 
 # Valid TLDs for email cleanup
 VALID_TLDS = {
