@@ -106,6 +106,8 @@ class Interview(models.Model):
     completed_date = models.DateTimeField(null=True, blank=True)
     access_token = models.UUIDField(default=uuid.uuid4, unique=True)
     expires_at = models.DateTimeField(null=True, blank=True)
+    questions_json = models.JSONField(default=list, blank=True)
+    full_recording = models.FileField(upload_to=interview_video_path, blank=True, null=True)
 
     def __str__(self):
         return f"Interview - {self.candidate.full_name}"
@@ -187,3 +189,5 @@ class HRReport(models.Model):
 
     class Meta:
         ordering = ['-generated_at']
+
+

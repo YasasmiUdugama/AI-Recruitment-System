@@ -1,6 +1,4 @@
-"""
-Django settings for AI Recruitment System
-"""
+
 from pathlib import Path
 import os
 from pathlib import Path
@@ -102,9 +100,11 @@ EMAIL_HOST = 'smtp.gmail.com'
 EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', 'hr2026interview@gmail.com')
-EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', 'ivue rwig uffu avrt' \
+EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', 'rtgq hhex edym tqms' \
 '')
 DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
+
+
 
 # Logging
 LOGGING = {
@@ -122,3 +122,6 @@ LOGGING = {
         },
     },
 }
+
+CV_KEYWORDS_XLSX = os.environ.get('CV_KEYWORDS_XLSX', str(BASE_DIR / 'cv_keywords.xlsx'))
+INTERVIEW_QUESTIONS_EXCEL = os.environ.get('INTERVIEW_QUESTIONS_EXCEL', str(BASE_DIR / 'interview_questions.xlsx'))

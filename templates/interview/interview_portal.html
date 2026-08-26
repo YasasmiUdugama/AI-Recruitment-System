@@ -345,10 +345,11 @@
             <p class="mb-2">Welcome, <strong>{{ candidate.full_name }}</strong></p>
             <p class="text-muted small mb-3">Position: {{ candidate.applied_job.title }}</p>
             <div class="audio-only-badge">
-                <i class="fas fa-microphone-lines"></i>
-                Audio-Only Interview Mode
+                <i class="fas fa-circle-dot"></i>
+                Your camera and microphone are recorded continuously from start to finish
             </div>
         </div>
+
 
         <!-- Progress -->
         <div class="progress-container">
@@ -404,31 +405,60 @@
     </div>
 
     <script>
-        const questions = [
-            { id: 0, text: "Tell me about your relevant experience and skills for this position." },
-            { id: 1, text: "What technical skills do you possess that are relevant to this role?" },
-            { id: 2, text: "Describe a challenging project you worked on and how you handled it." },
-            { id: 3, text: "Why are you interested in this position and what motivates you?" },
-            { id: 4, text: "How do you handle pressure and tight deadlines?" }
-        ];
+        // Populated from the server (real, keyword-scored questions) before
+        // renderQuestions() runs — see loadQuestions() below.
+        let questions = [];
 
         let currentQuestion = 0;
-        let mediaRecorder = null;
+        let mediaRecorder = null;      // per-question, audio-only, short recorder for transcription
         let audioChunks = [];
         let isRecording = false;
+        let currentAudioStreamOwned = false; // true only if the per-question recorder had to open its own mic (no session stream available)
         let timerInterval = null;
         let seconds = 0;
-        let recordedAnswers = {};
 
-        let cameraStream = null;
-        let videoRecorder = null;
-        let videoChunks = [];
+        let cameraStream = null;       // single persistent video+audio stream, opened once
+        let pendingAudioBlob = {};     // per-question transcription audio, keyed by question index
+        let answerSubmitted = {};      // true once /submit-answer/ has succeeded for this question
 
-        document.addEventListener('DOMContentLoaded', function() {
+        // NEW: one continuous recording covering the ENTIRE interview, started
+        // the moment the candidate lands on the page and stopped only when
+        // they submit. This closes the gap where a candidate could pause/stop
+        // recording between questions to check a phone or notes unobserved —
+        // the camera never turns off and never stops recording mid-interview.
+        let sessionRecorder = null;
+        let sessionChunks = [];
+        let sessionRecordingActive = false;
+        let interviewSubmitPending = false;
+
+        document.addEventListener('DOMContentLoaded', async function() {
+            await loadQuestions();
             renderQuestions();
-            setupCamera();
+            await initializeMedia();
             updateProgress();
         });
+
+
+        async function loadQuestions() {
+            try {
+                const response = await fetch('/interview/portal-questions/?token={{ interview.access_token|escapejs }}');
+                const data = await response.json();
+                if (data.success && data.questions && data.questions.length) {
+                    questions = data.questions.map(q => ({ id: q.index, text: q.text }));
+                    return;
+                }
+                throw new Error(data.error || 'No questions returned');
+            } catch (err) {
+                console.error('Failed to load interview questions, using fallback set:', err);
+                questions = [
+                    { id: 0, text: "Tell me about your relevant experience and skills for this position." },
+                    { id: 1, text: "What technical skills do you possess that are relevant to this role?" },
+                    { id: 2, text: "Describe a challenging project you worked on and how you handled it." },
+                    { id: 3, text: "Why are you interested in this position and what motivates you?" },
+                    { id: 4, text: "How do you handle pressure and tight deadlines?" }
+                ];
+            }
+        }
 
         function renderQuestions() {
             const container = document.getElementById('questionsContainer');
@@ -454,15 +484,8 @@
                     </div>
                     
                     <div class="answer-section" id="answerSection-${i}" style="display: none;">
-                        <label class="small text-muted mb-2 d-block">
-                            <i class="fas fa-wave-square me-1"></i>Transcribed Answer:
-                        </label>
                         <div class="answer-display" id="answerDisplay-${i}">
                             <em class="text-muted">No answer recorded yet. Please use the microphone button above.</em>
-                        </div>
-                        <div class="transcription-box mt-2" id="transcriptionBox-${i}" style="display: none;">
-                            <strong><i class="fas fa-language me-2"></i>Full Transcription:</strong>
-                            <p class="mb-0 mt-1" id="transText-${i}"></p>
                         </div>
                     </div>
                     
@@ -495,16 +518,55 @@
             });
         }
 
-        async function setupCamera() {
+        async function initializeMedia() {
             try {
-                const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
                 cameraStream = stream;
                 document.getElementById('cameraPreview').srcObject = stream;
                 document.getElementById('cameraOff').style.display = 'none';
+                startSessionRecording();
             } catch (err) {
-                console.log('Camera not available:', err);
+                console.log('Camera/microphone not available:', err);
                 document.getElementById('cameraOff').style.display = 'block';
+                // Fall back to audio-only so we can still capture a continuous
+                // recording of the whole interview for review, even without video.
+                try {
+                    const audioOnly = await navigator.mediaDevices.getUserMedia({ audio: true });
+                    cameraStream = audioOnly;
+                    startSessionRecording();
+                } catch (err2) {
+                    console.log('Microphone also not available:', err2);
+                    alert('Could not access your camera or microphone. Please check permissions and reload the page.');
+                }
             }
+        }
+
+
+        function startSessionRecording() {
+            if (!cameraStream) return;
+
+            const hasVideo = cameraStream.getVideoTracks().length > 0;
+            const videoTypes = ['video/webm;codecs=vp9,opus', 'video/webm;codecs=vp8,opus', 'video/webm'];
+            const audioTypes = ['audio/webm;codecs=opus', 'audio/webm'];
+            const supportedType = (hasVideo ? videoTypes : audioTypes).find(t => MediaRecorder.isTypeSupported(t));
+
+            try {
+                sessionRecorder = supportedType
+                    ? new MediaRecorder(cameraStream, { mimeType: supportedType })
+                    : new MediaRecorder(cameraStream);
+            } catch (err) {
+                console.error('Could not start full-session recording:', err);
+                return;
+            }
+
+            sessionChunks = [];
+            sessionRecorder.ondataavailable = e => { if (e.data.size > 0) sessionChunks.push(e.data); };
+            sessionRecorder.onstop = () => {
+                if (interviewSubmitPending) finalizeInterviewSubmission();
+            };
+            // Flush a chunk every 5s so a mid-interview crash doesn't lose everything.
+            sessionRecorder.start(5000);
+            sessionRecordingActive = true;
         }
 
         function nextQuestion(current) {
@@ -542,7 +604,16 @@
             
             if (!isRecording) {
                 try {
-                    const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+
+                    let audioSourceStream;
+                    if (cameraStream && cameraStream.getAudioTracks().length > 0) {
+                        audioSourceStream = new MediaStream(cameraStream.getAudioTracks());
+                        currentAudioStreamOwned = false;
+                    } else {
+                        audioSourceStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                        currentAudioStreamOwned = true;
+                    }
+
                     const preferredTypes = [
                         'audio/webm;codecs=opus',
                         'audio/webm',
@@ -552,42 +623,18 @@
                     const supportedType = preferredTypes.find(t => MediaRecorder.isTypeSupported(t));
 
                     mediaRecorder = supportedType
-                        ? new MediaRecorder(stream, { mimeType: supportedType })
-                        : new MediaRecorder(stream);
+                        ? new MediaRecorder(audioSourceStream, { mimeType: supportedType })
+                        : new MediaRecorder(audioSourceStream);
 
                     audioChunks = [];
                     mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
                     mediaRecorder.onstop = () => processAudio(questionIndex);
-                    
+
+                    // Reset per-question submission state for a fresh take
+                    pendingAudioBlob[questionIndex] = null;
+                    answerSubmitted[questionIndex] = false;
+
                     mediaRecorder.start();
-
-                    // Also record a video clip (webcam + mic) for this question, if the camera is available
-                    if (cameraStream && cameraStream.getVideoTracks().length > 0) {
-                        try {
-                            const combinedStream = new MediaStream([
-                                ...cameraStream.getVideoTracks(),
-                                ...stream.getAudioTracks()
-                            ]);
-                            const videoTypes = [
-                                'video/webm;codecs=vp9,opus',
-                                'video/webm;codecs=vp8,opus',
-                                'video/webm'
-                            ];
-                            const supportedVideoType = videoTypes.find(t => MediaRecorder.isTypeSupported(t));
-
-                            videoRecorder = supportedVideoType
-                                ? new MediaRecorder(combinedStream, { mimeType: supportedVideoType })
-                                : new MediaRecorder(combinedStream);
-
-                            videoChunks = [];
-                            videoRecorder.ondataavailable = e => { if (e.data.size > 0) videoChunks.push(e.data); };
-                            videoRecorder.onstop = () => uploadVideo(questionIndex);
-                            videoRecorder.start();
-                        } catch (videoErr) {
-                            console.log('Video recording not available:', videoErr);
-                            videoRecorder = null;
-                        }
-                    }
 
                     isRecording = true;
                     btnText.textContent = 'Stop Recording';
@@ -602,10 +649,9 @@
                 }
             } else {
                 mediaRecorder.stop();
-                mediaRecorder.stream.getTracks().forEach(t => t.stop());
 
-                if (videoRecorder && videoRecorder.state !== 'inactive') {
-                    videoRecorder.stop();
+                if (currentAudioStreamOwned) {
+                    mediaRecorder.stream.getTracks().forEach(t => t.stop());
                 }
 
                 isRecording = false;
@@ -640,117 +686,111 @@
 
             const answerSection = document.getElementById('answerSection-' + questionIndex);
             const answerDisplay = document.getElementById('answerDisplay-' + questionIndex);
-            const transBox = document.getElementById('transcriptionBox-' + questionIndex);
-            const transText = document.getElementById('transText-' + questionIndex);
             const statusMsg = document.getElementById('statusMsg-' + questionIndex);
-            const nextBtn = document.getElementById('nextBtn-' + questionIndex) || document.getElementById('submitBtn-' + questionIndex);
-            
+
+
             answerSection.style.display = 'block';
-            answerDisplay.innerHTML = '<em class="text-muted"><i class="fas fa-spinner fa-spin me-2"></i>Processing speech-to-text...</em>';
-            answerDisplay.classList.remove('has-content');
-            
-            const formData = new FormData();
-            formData.append('audio', audioBlob, `recording.${fileExtension}`);
-            
-            try {
-                const response = await fetch('/voice/transcribe/', {
-                    method: 'POST',
-                    body: formData,
-                    headers: { 'X-CSRFToken': getCookie('csrftoken') }
-                });
-                const data = await response.json();
-                
-                if (data.success && data.transcription) {
-                    const transcription = data.transcription;
-                    
-                    recordedAnswers[questionIndex] = {
-                        question_id: questions[questionIndex].id,
-                        question_text: questions[questionIndex].text,
-                        answer_text: transcription,
-                        audio_blob: audioBlob
-                    };
-                    
-                    answerDisplay.textContent = transcription;
-                    answerDisplay.classList.add('has-content');
-                    
-                    transText.textContent = transcription;
-                    transBox.style.display = 'block';
-                    
-                    statusMsg.className = 'status-message success';
-                    statusMsg.innerHTML = '<i class="fas fa-check-circle me-2"></i>Answer recorded successfully! You can proceed to the next question.';
-                    
-                    nextBtn.disabled = false;
-                    
-                } else {
-                    answerDisplay.innerHTML = '<em class="text-danger"><i class="fas fa-exclamation-triangle me-2"></i>Transcription failed. Please try recording again.</em>';
-                    statusMsg.className = 'status-message info';
-                    statusMsg.innerHTML = '<i class="fas fa-redo me-2"></i>Please click the microphone button and try speaking your answer again.';
-                }
-            } catch (err) {
-                answerDisplay.innerHTML = '<em class="text-danger"><i class="fas fa-exclamation-triangle me-2"></i>Server error. Please try recording again.</em>';
-                statusMsg.className = 'status-message info';
-                statusMsg.innerHTML = '<i class="fas fa-redo me-2"></i>Please click the microphone button and try speaking your answer again.';
-                console.error('Transcription error:', err);
+            answerDisplay.innerHTML = '<em class="text-muted"><i class="fas fa-spinner fa-spin me-2"></i>Processing your answer...</em>';
+            statusMsg.className = 'status-message info';
+            statusMsg.innerHTML = '<i class="fas fa-circle-info me-2"></i>Analyzing your recording...';
+
+            pendingAudioBlob[questionIndex] = { blob: audioBlob, extension: fileExtension };
+
+            if (!answerSubmitted[questionIndex]) {
+                answerSubmitted[questionIndex] = true;
+                submitAnswerToServer(questionIndex);
             }
         }
 
-        async function uploadVideo(questionIndex) {
-            if (!videoChunks.length) return;
-
-            const actualMimeType = videoRecorder.mimeType || 'video/webm';
-            const videoBlob = new Blob(videoChunks, { type: actualMimeType });
-            const fileExtension = actualMimeType.includes('mp4') ? 'mp4' : 'webm';
+        async function submitAnswerToServer(questionIndex) {
+            const answerDisplay = document.getElementById('answerDisplay-' + questionIndex);
+            const statusMsg = document.getElementById('statusMsg-' + questionIndex);
+            const nextBtn = document.getElementById('nextBtn-' + questionIndex) || document.getElementById('submitBtn-' + questionIndex);
 
             const formData = new FormData();
-            formData.append('video', videoBlob, `answer-${questionIndex}.${fileExtension}`);
+            const audioData = pendingAudioBlob[questionIndex];
+            formData.append('audio', audioData.blob, `recording.${audioData.extension}`);
             formData.append('interview_id', "{{ interview.id|escapejs }}");
             formData.append('question_index', questionIndex);
             formData.append('question_text', questions[questionIndex].text);
 
             try {
-                const response = await fetch('/interview/upload-video/', {
+                const response = await fetch('/interview/submit-answer/', {
                     method: 'POST',
                     body: formData,
                     headers: { 'X-CSRFToken': getCookie('csrftoken') }
                 });
                 const data = await response.json();
-                if (!data.success) {
-                    console.error('Video upload failed:', data.error);
+
+                if (data.success) {
+
+                    answerDisplay.innerHTML = '<i class="fas fa-check-circle text-success me-2"></i>Answer captured.';
+
+                    statusMsg.className = 'status-message success';
+                    statusMsg.innerHTML = '<i class="fas fa-check-circle me-2"></i>Answer recorded successfully! You can proceed to the next question.';
+
+                    nextBtn.disabled = false;
+                } else {
+                    answerSubmitted[questionIndex] = false;
+                    answerDisplay.innerHTML = '<em class="text-danger"><i class="fas fa-exclamation-triangle me-2"></i>Could not process your answer. Please try recording again.</em>';
+                    statusMsg.className = 'status-message info';
+                    statusMsg.innerHTML = '<i class="fas fa-redo me-2"></i>Please click the microphone button and try speaking your answer again.';
                 }
             } catch (err) {
-                console.error('Video upload error:', err);
+                answerSubmitted[questionIndex] = false;
+                answerDisplay.innerHTML = '<em class="text-danger"><i class="fas fa-exclamation-triangle me-2"></i>Server error. Please try recording again.</em>';
+                statusMsg.className = 'status-message info';
+                statusMsg.innerHTML = '<i class="fas fa-redo me-2"></i>Please click the microphone button and try speaking your answer again.';
+                console.error('Submit answer error:', err);
             }
         }
 
         async function submitInterview() {
-            const answers = questions.map((q, i) => ({
-                question_id: q.id,
-                question_text: q.text,
-                answer_text: recordedAnswers[i]?.answer_text || ''
-            }));
-
-            console.log('Submitting answers:', answers);
-            
             const submitBtn = document.getElementById('submitBtn-' + (questions.length - 1));
             if (submitBtn) {
                 submitBtn.disabled = true;
-                submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Submitting...';
+                submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Finalizing recording...';
             }
-            
+
+            interviewSubmitPending = true;
+
+
+            if (sessionRecorder && sessionRecorder.state !== 'inactive') {
+                sessionRecorder.stop();
+            } else {
+                await finalizeInterviewSubmission();
+            }
+        }
+
+        async function finalizeInterviewSubmission() {
+            const submitBtn = document.getElementById('submitBtn-' + (questions.length - 1));
+            if (submitBtn) {
+                submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin me-2"></i>Uploading and analyzing your interview...';
+            }
+
+            // Release the camera/mic now that recording has stopped.
+            if (cameraStream) {
+                cameraStream.getTracks().forEach(t => t.stop());
+            }
+
             try {
-                const requestBody = {
-                    interview_id: parseInt("{{ interview.id|escapejs }}", 10),
-                    answers: answers
-                };
-                console.log('Request body:', JSON.stringify(requestBody));
+                const formData = new FormData();
+                formData.append('interview_id', parseInt("{{ interview.id|escapejs }}", 10));
+
+                if (sessionChunks.length > 0) {
+                    const actualMimeType = sessionRecorder ? (sessionRecorder.mimeType || 'video/webm') : 'video/webm';
+                    const fileExtension = actualMimeType.includes('mp4') ? 'mp4' : 'webm';
+                    const fullBlob = new Blob(sessionChunks, { type: actualMimeType });
+                    formData.append('video', fullBlob, `full-interview.${fileExtension}`);
+                }
+
+                console.log('Submitting full interview recording, size:',
+                    sessionChunks.reduce((sum, c) => sum + c.size, 0), 'bytes');
 
                 const response = await fetch('/interview/complete/', {
                     method: 'POST',
-                    body: JSON.stringify(requestBody),
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'X-CSRFToken': getCookie('csrftoken')
-                    }
+                    body: formData,
+                    headers: { 'X-CSRFToken': getCookie('csrftoken') }
                 });
 
                 console.log('Response status:', response.status);
@@ -792,7 +832,14 @@
                         ? '<span class="badge bg-success">Recommended</span>'
                         : '<span class="badge bg-secondary">Not Recommended</span>';
                     document.getElementById('recommendation').innerHTML = recBadge;
-                    
+
+                    if (data.proctoring_flags && data.proctoring_flags.length > 0) {
+                        const flagsDiv = document.createElement('div');
+                        flagsDiv.className = 'status-message info mt-3';
+                        flagsDiv.innerHTML = '<i class="fas fa-triangle-exclamation me-2"></i>Some parts of this interview were flagged for review by our proctoring system.';
+                        document.getElementById('scoreBreakdown').appendChild(flagsDiv);
+                    }
+
                 } else {
                     const debugDiv = document.getElementById('debugInfo');
                     debugDiv.style.display = 'block';
@@ -852,6 +899,14 @@
             }
             return cookieValue;
         }
+
+
+        window.addEventListener('beforeunload', function (e) {
+            if (sessionRecordingActive && !interviewSubmitPending) {
+                e.preventDefault();
+                e.returnValue = '';
+            }
+        });
     </script>
 </body>
 </html>

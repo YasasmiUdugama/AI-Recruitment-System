@@ -1,9 +1,4 @@
-"""
-CV Ranking Module
-Uses TF-IDF (Term Frequency-Inverse Document Frequency) and
-Cosine Similarity to rank CVs against a job description.
 
-"""
 
 import re
 import logging
@@ -32,21 +27,7 @@ def preprocess_text(text):
 
 
 def rank_cvs(job_description, cv_texts):
-    """
-    Rank CVs against a job description using TF-IDF and Cosine Similarity
 
-    Parameters:
-    -----------
-    job_description : str
-        The job description text
-    cv_texts : dict
-        Dictionary mapping candidate_id/cv_filename to cv_text
-
-    Returns:
-    --------
-    list : Sorted list of (candidate_id, similarity_score) tuples
-           Ordered by similarity score (highest first)
-    """
     if not job_description or not cv_texts:
         logger.warning("Empty job description or CV texts provided")
         return []
@@ -65,11 +46,11 @@ def rank_cvs(job_description, cv_texts):
         logger.warning("No valid CV texts after preprocessing")
         return []
 
-    # Combine job description + all CVs
+
     documents = [processed_job] + list(processed_cvs.values())
 
     try:
-        # Convert text to numerical vectors using TF-IDF
+
         vectorizer = TfidfVectorizer(
             stop_words='english',
             max_features=5000,
@@ -80,15 +61,12 @@ def rank_cvs(job_description, cv_texts):
 
         tfidf_matrix = vectorizer.fit_transform(documents)
 
-        # Calculate cosine similarity between job description and each CV
-        # tfidf_matrix[0:1] is the job description vector
-        # tfidf_matrix[1:] are all CV vectors
         similarity_scores = cosine_similarity(
             tfidf_matrix[0:1],
             tfidf_matrix[1:]
         ).flatten()
 
-        # Map scores back to CV IDs
+
         results = []
         cv_ids = list(processed_cvs.keys())
 
@@ -96,7 +74,7 @@ def rank_cvs(job_description, cv_texts):
             score = float(similarity_scores[i])
             results.append((cv_id, score))
 
-        # Sort by score (highest first)
+
         results.sort(key=lambda x: x[1], reverse=True)
 
         logger.info(f"Ranked {len(results)} CVs against job description")
@@ -142,20 +120,7 @@ def get_top_keywords(job_description, cv_text, n_keywords=10):
 
 
 def batch_rank(job_description, candidates_queryset):
-    """
-    Rank candidates from a Django queryset
 
-    Parameters:
-    -----------
-    job_description : str
-        The job description
-    candidates_queryset : QuerySet
-        Django queryset of Candidate objects with cv_text
-
-    Returns:
-    --------
-    list : Sorted list of (candidate, similarity_score) tuples
-    """
     cv_texts = {}
     candidate_map = {}
 

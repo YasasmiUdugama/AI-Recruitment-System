@@ -1,597 +1,721 @@
-from django.shortcuts import render, get_object_or_404, redirect
-from django.http import JsonResponse
-from django.views.decorators.csrf import csrf_exempt
-from django.utils import timezone
-from django.db import transaction
-from datetime import timedelta
-import json
+
 import logging
-import re
+import json
+import os
+import tempfile
 
+from django.shortcuts import render, get_object_or_404
+from django.http import JsonResponse
+from django.utils import timezone
+from django.views.decorators.csrf import csrf_exempt
 from django.db.models import Avg, Count, Q
+from django.core.files.storage import default_storage
 
-from core.models import Candidate, Interview, InterviewResponse, InterviewEvaluation, JobDescription
-from .interview_engine import (
-    get_questions, evaluate_answer, evaluate_technical_answer,
-    calculate_overall_score, get_interview_feedback
-)
+from core.models import Interview, InterviewResponse, InterviewEvaluation, Candidate, JobDescription
+from .interview_engine import generate_interview_questions, evaluate_answer
+from .questions_loader import get_questions, get_question_by_keywords
+
+from voice.voice_analyzer import full_voice_analysis
+from emotion.emotion_detector import analyze_video_emotions
+from emotion.proctor_detector import analyze_video_proctoring
 
 logger = logging.getLogger('ai_recruitment')
 
 
-def interview_questions_api(request, job_type='general'):
-    """API to get interview questions"""
+def get_or_create_interview_questions(interview):
+    """
+    Return this interview's cached question set (text + keywords), generating
+    and storing it on first access via Interview.questions_json. This is the
+    single source of truth both the portal template and submit_answer_api
+    read from, so scoring can't be forged by whatever the client posts.
+    """
+    if interview.questions_json:
+        return interview.questions_json
+
+    questions = generate_interview_questions(interview.candidate, count=5)
+    interview.questions_json = questions
+    interview.save(update_fields=['questions_json'])
+    return questions
+
+
+# ============ CANDIDATE-FACING APIs ============
+
+def interview_questions_api(request, job_type):
+    """Get interview questions by job type (e.g., /interview/questions/technical/)"""
     count = int(request.GET.get('count', 5))
-    questions = get_questions(job_type, count)
+    difficulty = request.GET.get('difficulty', None)
+
+    try:
+        questions = get_questions(category=job_type, count=count, difficulty=difficulty)
+    except Exception as e:
+        logger.error(f"Error loading questions for {job_type}: {e}")
+        questions = get_questions(category='general', count=count)
+
+    formatted = []
+    for i, q in enumerate(questions, 1):
+        formatted.append({
+            'index': i,
+            'text': q['text'],
+            'type': q['type'],
+            'difficulty': q['difficulty'],
+            'keywords': q['keywords'],
+            'time_limit': q['time_limit'],
+        })
+
     return JsonResponse({
         'success': True,
-        'questions': questions
+        'job_type': job_type,
+        'count': len(formatted),
+        'questions': formatted,
     })
 
 
+@csrf_exempt
 def evaluate_answer_api(request):
-    """API to evaluate a single answer"""
-    if request.method == 'POST':
-        data = json.loads(request.body)
-        answer = data.get('answer', '')
-        question_id = data.get('question_id', 0)
-
-        score = evaluate_answer(answer, question_id)
-
-        return JsonResponse({
-            'success': True,
-            'score': score,
-            'max_score': 1.0,
-            'feedback': get_interview_feedback(score)
-        })
-
-    return JsonResponse({'success': False, 'error': 'POST required'})
-
-
-def save_response_api(request):
-    """Save an interview response"""
-    if request.method == 'POST':
-        data = json.loads(request.body)
-
-        interview_id = data.get('interview_id')
-        question_index = data.get('question_index')
-        question_text = data.get('question_text')
-        answer_text = data.get('answer_text')
-        keyword_score = data.get('keyword_score', 0)
-        confidence_score = data.get('confidence_score', 0)
-        transcription = data.get('transcription', '')
-        emotion_data = data.get('emotion_data', {})
-        voice_analysis = data.get('voice_analysis', {})
-
-        try:
-            interview = Interview.objects.get(id=interview_id)
-
-            response, created = InterviewResponse.objects.update_or_create(
-                interview=interview,
-                question_index=question_index,
-                defaults={
-                    'question_text': question_text,
-                    'answer_text': answer_text,
-                    'keyword_score': keyword_score,
-                    'confidence_score': confidence_score,
-                    'transcription': transcription,
-                    'emotion_data': emotion_data,
-                    'voice_analysis': voice_analysis,
-                }
-            )
-
-            return JsonResponse({'success': True, 'response_id': response.id})
-
-        except Interview.DoesNotExist:
-            return JsonResponse({'success': False, 'error': 'Interview not found'})
-        except Exception as e:
-            logger.error(f"Error saving response: {e}")
-            return JsonResponse({'success': False, 'error': str(e)})
-
-    return JsonResponse({'success': False, 'error': 'POST required'})
-
-
-@csrf_exempt
-def upload_video_api(request):
-    """Save the recorded webcam video clip for a single interview question."""
+    """Evaluate a single answer against question keywords"""
     if request.method != 'POST':
-        return JsonResponse({'success': False, 'error': 'POST required'})
-
-    interview_id = request.POST.get('interview_id')
-    question_index = request.POST.get('question_index')
-    question_text = request.POST.get('question_text', '')
-    video_file = request.FILES.get('video')
-
-    if not interview_id or question_index is None:
-        return JsonResponse({'success': False, 'error': 'Missing interview_id or question_index'})
-
-    if not video_file:
-        return JsonResponse({'success': False, 'error': 'No video file received'})
-
-    try:
-        interview = Interview.objects.get(id=interview_id)
-    except Interview.DoesNotExist:
-        return JsonResponse({'success': False, 'error': 'Interview not found'})
-
-    try:
-        response, created = InterviewResponse.objects.update_or_create(
-            interview=interview,
-            question_index=int(question_index),
-            defaults={'video_file': video_file, 'question_text': question_text},
-        )
-        logger.info(f"Saved video for interview {interview_id}, question {question_index} (response {response.id})")
-        return JsonResponse({'success': True, 'response_id': response.id})
-    except Exception as e:
-        logger.error(f"Error saving video for interview {interview_id}, question {question_index}: {e}")
-        return JsonResponse({'success': False, 'error': str(e)})
-
-
-def calculate_response_score(answer_text, question_id, job_type='general'):
-    """
-    Calculate a comprehensive score (0.0 - 1.0) for a single answer.
-    Returns score and confidence estimate.
-    """
-    if not answer_text or not answer_text.strip():
-        return 0.05, 0.3
-
-    answer_lower = answer_text.lower()
-    words = answer_text.split()
-    word_count = len(words)
-
-    base_keyword_score = evaluate_answer(answer_text, question_id)
-
-    score_factors = {
-        'keyword_match': base_keyword_score,
-        'length_quality': 0.0,
-        'technical_depth': 0.0,
-        'structure_quality': 0.0,
-        'specificity': 0.0,
-    }
-
-    if word_count >= 15:
-        score_factors['length_quality'] = min(word_count / 80, 1.0)
-    elif word_count >= 5:
-        score_factors['length_quality'] = 0.3 + (word_count / 50)
-    else:
-        score_factors['length_quality'] = 0.1
-
-    depth_patterns = [
-        r'\b(example|instance|specific|particular)\b',
-        r'\b(developed|implemented|designed|created|built)\b',
-        r'\b(process|methodology|approach|strategy|framework)\b',
-        r'\b(result|outcome|achieved|improved|increased|decreased)\b',
-        r'\b(challenge|problem|issue|obstacle|difficulty)\b',
-        r'\b(solution|resolved|fixed|addressed|handled)\b',
-        r'\b(team|collaborated|led|managed|coordinated)\b',
-        r'\b(learned|grew|adapted|evolved|improved)\b',
-    ]
-    depth_matches = sum(1 for pattern in depth_patterns if re.search(pattern, answer_lower))
-    score_factors['technical_depth'] = min(depth_matches / 4, 1.0)
-
-    structure_patterns = [
-        r'\b(first|initially|to begin|started)\b',
-        r'\b(then|next|after|subsequently|following)\b',
-        r'\b(finally|ultimately|in conclusion|overall)\b',
-        r'\b(because|since|therefore|thus|as a result)\b',
-        r'\b(however|although|while|whereas|despite)\b',
-    ]
-    structure_matches = sum(1 for pattern in structure_patterns if re.search(pattern, answer_lower))
-    score_factors['structure_quality'] = min(structure_matches / 2.5, 1.0)
-
-    specificity_patterns = [
-        r'\d+',
-        r'\b(year|month|week|day|hour)s?\b',
-        r'\b(percent|%|percentage)\b',
-        r'\b(python|javascript|java|sql|react|django|flask|aws|azure|gcp)\b',
-        r'\b(agile|scrum|kanban|waterfall|devops|ci/cd)\b',
-        r'\b(team of|group of|collaborated with|worked with)\b',
-    ]
-    specificity_matches = sum(1 for pattern in specificity_patterns if re.search(pattern, answer_lower))
-    score_factors['specificity'] = min(specificity_matches / 3, 1.0)
-
-    weights = {
-        'keyword_match': 0.30,
-        'length_quality': 0.20,
-        'technical_depth': 0.25,
-        'structure_quality': 0.15,
-        'specificity': 0.10,
-    }
-
-    final_score = sum(score_factors[k] * weights[k] for k in weights.keys())
-    final_score = max(final_score, 0.05)
-
-    confidence_base = 0.4
-    confidence_word_bonus = min(word_count / 200, 0.3)
-    confidence_structure_bonus = score_factors['structure_quality'] * 0.2
-    confidence_depth_bonus = score_factors['technical_depth'] * 0.1
-
-    confidence_score = confidence_base + confidence_word_bonus + confidence_structure_bonus + confidence_depth_bonus
-    confidence_score = min(confidence_score, 1.0)
-
-    return round(final_score, 2), round(confidence_score, 2)
-
-
-@csrf_exempt
-def complete_interview_api(request):
-    """Complete an interview and generate evaluation"""
-    if request.method != 'POST':
-        return JsonResponse({'success': False, 'error': 'POST required'})
+        return JsonResponse({'error': 'POST required'}, status=405)
 
     try:
         data = json.loads(request.body)
     except json.JSONDecodeError:
-        return JsonResponse({'success': False, 'error': 'Invalid JSON data'})
+        return JsonResponse({'error': 'Invalid JSON'}, status=400)
+
+    answer_text = data.get('answer_text', '')
+    question = data.get('question', {})
+
+    score = evaluate_answer(answer_text, question)
+
+    return JsonResponse({
+        'success': True,
+        'keyword_score': score,
+        'max_score': 1.0,
+    })
+
+
+@csrf_exempt
+def save_response_api(request):
+    """Save an interview response (kept for direct/manual use, e.g. HR tools)"""
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST required'}, status=405)
+
+    try:
+        data = json.loads(request.body)
+    except json.JSONDecodeError:
+        return JsonResponse({'error': 'Invalid JSON'}, status=400)
 
     interview_id = data.get('interview_id')
-    answers = data.get('answers', [])
-
-    if not interview_id:
-        return JsonResponse({'success': False, 'error': 'Missing interview_id'})
+    question_data = data.get('question', {})
+    answer_text = data.get('answer_text', '')
+    confidence_score = data.get('confidence_score', 0.0)
+    emotion_data = data.get('emotion_data', {})
+    voice_analysis = data.get('voice_analysis', {})
 
     try:
         interview = Interview.objects.get(id=interview_id)
     except Interview.DoesNotExist:
-        return JsonResponse({'success': False, 'error': 'Interview not found'})
+        return JsonResponse({'error': 'Interview not found'}, status=404)
 
-    try:
-        # FIX: Use transaction to ensure all saves succeed or all fail
-        with transaction.atomic():
-            if answers and len(answers) > 0:
-                logger.info(f"Processing {len(answers)} answers for interview {interview_id}")
-                
-                for i, ans in enumerate(answers):
-                    question_id = ans.get('question_id', i)
-                    question_text = ans.get('question_text', '')
-                    answer_text = ans.get('answer_text', '')
+    keyword_score = evaluate_answer(answer_text, question_data)
 
-                    logger.debug(f"Q{i}: answer length={len(answer_text) if answer_text else 0}")
-
-                    # Calculate scores for this answer
-                    keyword_score, confidence_score = calculate_response_score(
-                        answer_text, question_id, getattr(interview, 'job_type', None) or 'general'
-                    )
-
-                    logger.debug(f"Q{i}: keyword_score={keyword_score}, confidence_score={confidence_score}")
-
-                    # Update (or create) the response row without touching video_file,
-                    # so any video clip already uploaded for this question is preserved.
-                    response, _ = InterviewResponse.objects.update_or_create(
-                        interview=interview,
-                        question_index=i,
-                        defaults={
-                            'question_text': question_text,
-                            'answer_text': answer_text,
-                            'keyword_score': keyword_score,
-                            'confidence_score': confidence_score,
-                            'transcription': answer_text,
-                            'emotion_data': {},
-                            'voice_analysis': {},
-                        }
-                    )
-
-                    logger.info(f"Saved response {response.id} for question {i}")
-
-        # Now fetch all responses
-        responses = InterviewResponse.objects.filter(interview=interview)
-        response_count = responses.count()
-        logger.info(f"Found {response_count} responses for interview {interview_id}")
-
-        if response_count == 0:
-            logger.error(f"No responses found after saving for interview {interview_id}")
-            return JsonResponse({
-                'success': False,
-                'error': 'Failed to save responses. Please try again.'
-            })
-
-        # Calculate scores from responses
-        response_data = []
-        for resp in responses:
-            ks = resp.keyword_score if resp.keyword_score is not None else 0.05
-            cs = resp.confidence_score if resp.confidence_score is not None else 0.3
-            
-            ks = max(float(ks), 0.05)
-            cs = max(float(cs), 0.1)
-            
-            response_data.append({
-                'keyword_score': ks,
-                'confidence_score': cs,
-            })
-
-        logger.info(f"Calculating overall score from {len(response_data)} responses")
-        summary = calculate_overall_score(response_data)
-
-        # Convert to 1-100 scale
-        overall_percent = int(summary['overall_score'] * 100)
-        keyword_percent = int(summary['keyword_score_avg'] * 100)
-        confidence_percent = int(summary['confidence_score_avg'] * 100)
-
-        overall_percent = max(overall_percent, 1)
-        keyword_percent = max(keyword_percent, 1)
-        confidence_percent = max(confidence_percent, 1)
-
-        recommendation = 'recommended' if summary['overall_score'] >= 0.6 else 'not_recommended'
-        feedback = get_interview_feedback(summary['overall_score'])
-
-        logger.info(f"Interview {interview_id}: overall={overall_percent}, keyword={keyword_percent}, confidence={confidence_percent}, rec={recommendation}")
-
-        # Create evaluation
-        evaluation, created = InterviewEvaluation.objects.update_or_create(
-            interview=interview,
-            defaults={
-                'overall_score': summary['overall_score'],
-                'keyword_score_avg': summary['keyword_score_avg'],
-                'confidence_score_avg': summary['confidence_score_avg'],
-                'recommendation': recommendation,
-                'notes': feedback
-            }
-        )
-
-        # Update statuses
-        interview.status = 'completed'
-        interview.completed_date = timezone.now()
-        interview.save()
-
-        candidate = interview.candidate
-        candidate.status = 'interview_completed'
-        candidate.save()
-
-        return JsonResponse({
-            'success': True,
-            'evaluation': {
-                'overall_score': overall_percent,
-                'keyword_score_avg': keyword_percent,
-                'confidence_score_avg': confidence_percent,
-                'recommendation': recommendation,
-                'feedback': feedback
-            }
-        })
-
-    except Exception as e:
-        logger.error(f"Error completing interview {interview_id}: {e}", exc_info=True)
-        return JsonResponse({'success': False, 'error': str(e)})
-
-
-def interview_info(request):
-    """Info page about the AI interview system"""
-    return render(request, 'interview/interview_info.html')
-
-
-# ---------------------------------------------------------------------------
-# HR Partner API endpoints
-# ---------------------------------------------------------------------------
-
-def hr_dashboard_api(request):
-    """High-level summary stats for the HR dashboard"""
-    total_candidates = Candidate.objects.count()
-    total_jobs = JobDescription.objects.filter(status='active').count()
-
-    interview_counts = Interview.objects.aggregate(
-        pending=Count('id', filter=Q(status='pending')),
-        scheduled=Count('id', filter=Q(status='scheduled')),
-        in_progress=Count('id', filter=Q(status='in_progress')),
-        completed=Count('id', filter=Q(status='completed')),
-        expired=Count('id', filter=Q(status='expired')),
+    response = InterviewResponse.objects.create(
+        interview=interview,
+        question_index=question_data.get('index', 0),
+        question_text=question_data.get('text', ''),
+        answer_text=answer_text,
+        keyword_score=keyword_score,
+        confidence_score=confidence_score,
+        emotion_data=emotion_data,
+        voice_analysis=voice_analysis,
     )
-
-    evaluation_stats = InterviewEvaluation.objects.aggregate(
-        avg_overall_score=Avg('overall_score'),
-        recommended_count=Count('id', filter=Q(recommendation='recommended')),
-        not_recommended_count=Count('id', filter=Q(recommendation='not_recommended')),
-    )
-
-    candidate_status_counts = {
-        row['status']: row['count']
-        for row in Candidate.objects.values('status').annotate(count=Count('id'))
-    }
 
     return JsonResponse({
         'success': True,
-        'total_candidates': total_candidates,
-        'active_jobs': total_jobs,
-        'interviews': interview_counts,
-        'evaluations': {
-            'average_score': round((evaluation_stats['avg_overall_score'] or 0) * 100, 1),
-            'recommended': evaluation_stats['recommended_count'],
-            'not_recommended': evaluation_stats['not_recommended_count'],
-        },
-        'candidates_by_status': candidate_status_counts,
+        'response_id': response.id,
+        'keyword_score': keyword_score,
     })
 
 
-def interview_list_api(request):
-    """List all interviews, optionally filtered by status"""
-    interviews = Interview.objects.select_related('candidate', 'candidate__applied_job').all()
+@csrf_exempt
+def submit_answer_api(request):
+    """
+    Consolidated per-question submission — handles the SHORT audio clip the
+    candidate records for a single answer (transcription + keyword scoring +
+    voice confidence). It does NOT handle video anymore: emotion and
+    proctoring (phone/notes/multiple-people) analysis now run ONCE, over the
+    full continuous interview recording, in complete_interview_api — see that
+    function's docstring for why (this is what closes the "pause recording
+    between questions to check a phone" gap).
 
-    status = request.GET.get('status')
-    if status:
-        interviews = interviews.filter(status=status)
+    Expects multipart/form-data: interview_id, question_index, question_text, audio (file)
+    """
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST required'}, status=405)
 
-    job_id = request.GET.get('job_id')
-    if job_id:
-        interviews = interviews.filter(candidate__applied_job_id=job_id)
+    interview_id = request.POST.get('interview_id')
+    question_index = request.POST.get('question_index')
+    question_text = request.POST.get('question_text', '')
+    audio_file = request.FILES.get('audio')
 
-    data = []
-    for interview in interviews:
-        evaluation = getattr(interview, 'evaluation', None)
-        data.append({
-            'id': interview.id,
-            'candidate_id': interview.candidate_id,
-            'candidate_name': interview.candidate.full_name,
-            'job_title': interview.candidate.applied_job.title,
-            'status': interview.status,
-            'scheduled_date': interview.scheduled_date,
-            'completed_date': interview.completed_date,
-            'overall_score': round(evaluation.overall_score * 100) if evaluation else None,
-            'recommendation': evaluation.recommendation if evaluation else None,
-        })
+    if not interview_id or question_index is None:
+        return JsonResponse({'success': False, 'error': 'interview_id and question_index required'}, status=400)
 
-    return JsonResponse({'success': True, 'count': len(data), 'interviews': data})
+    try:
+        interview = Interview.objects.get(id=interview_id)
+    except Interview.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Interview not found'}, status=404)
 
+    answer_text = ''
+    voice_features = {}
+    confidence_score = 0.0
+    q_pos = None
+    try:
+        q_pos = int(question_index)
+    except (TypeError, ValueError):
+        pass
 
-def interview_detail_api(request, interview_id):
-    """Details for a single interview, including its responses"""
-    interview = get_object_or_404(
-        Interview.objects.select_related('candidate', 'candidate__applied_job'),
-        id=interview_id
+    # ---- Audio: transcription + voice confidence ----
+    if audio_file:
+        suffix = os.path.splitext(audio_file.name)[1] or '.webm'
+        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
+            for chunk in audio_file.chunks():
+                tmp.write(chunk)
+            audio_path = tmp.name
+        try:
+            voice_result = full_voice_analysis(audio_path)
+            answer_text = voice_result.get('transcription', {}).get('text', '').strip()
+            voice_features = voice_result.get('voice_features', {})
+            confidence_score = voice_features.get('confidence_score', 0.0)
+        except Exception as e:
+            logger.error(f"Voice analysis failed for interview {interview_id} q{question_index}: {e}")
+        finally:
+            os.unlink(audio_path)
+
+    # ---- Keyword scoring ----
+    # Look up keywords from the interview's server-generated question set
+    # (Interview.questions_json), never from client-supplied text — the
+    # candidate's browser can't be trusted to report its own keywords.
+    stored_questions = get_or_create_interview_questions(interview)
+    stored_question = None
+    if q_pos is not None and 0 <= q_pos < len(stored_questions):
+        stored_question = stored_questions[q_pos]
+
+    keywords = stored_question.get('keywords', []) if stored_question else []
+    # Prefer the server's own question text for the saved record too, falling
+    # back to whatever the client sent if lookup failed for some reason.
+    resolved_question_text = stored_question.get('text', question_text) if stored_question else question_text
+
+    keyword_score = evaluate_answer(answer_text, {'keywords': keywords}) if keywords else 0.5
+
+    response = InterviewResponse.objects.create(
+        interview=interview,
+        question_index=q_pos if q_pos is not None else 0,
+        question_text=resolved_question_text,
+        answer_text=answer_text,
+        transcription=answer_text,
+        keyword_score=keyword_score,
+        confidence_score=confidence_score,
+        voice_analysis=voice_features,
     )
 
-    responses = InterviewResponse.objects.filter(interview=interview).order_by('question_index')
-    evaluation = getattr(interview, 'evaluation', None)
+    if audio_file:
+        audio_file.seek(0)
+        response.audio_file = audio_file
+        response.save()
 
-    response_data = [
-        {
-            'question_index': r.question_index,
-            'question_text': r.question_text,
-            'answer_text': r.answer_text,
-            'keyword_score': r.keyword_score,
-            'confidence_score': r.confidence_score,
-            'video_url': (r.video_file.url if r.video_file else None),
+    return JsonResponse({
+        'success': True,
+        'response_id': response.id,
+        'transcription': answer_text,
+        'keyword_score': keyword_score,
+        'confidence_score': confidence_score,
+    })
+
+
+@csrf_exempt
+def upload_video_api(request):
+    """Upload video file for an already-created interview response (manual/HR use)."""
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST required'}, status=405)
+
+    response_id = request.POST.get('response_id')
+    video_file = request.FILES.get('video')
+
+    if not response_id or not video_file:
+        return JsonResponse({'error': 'response_id and video file required'}, status=400)
+
+    try:
+        response = InterviewResponse.objects.get(id=response_id)
+    except InterviewResponse.DoesNotExist:
+        return JsonResponse({'error': 'Response not found'}, status=404)
+
+    response.video_file = video_file
+    response.save()
+
+    return JsonResponse({
+        'success': True,
+        'message': 'Video uploaded successfully',
+        'video_url': response.video_file.url if response.video_file else None,
+    })
+
+
+@csrf_exempt
+def complete_interview_api(request):
+    """
+    Complete an interview: analyze the ONE continuous recording that spans
+    start-to-finish (uploaded here as multipart 'video'), aggregate the
+    per-question keyword/voice scores already saved via submit_answer_api,
+    and produce the final evaluation.
+
+    Analyzing a single full-length recording — instead of separate per-
+    question clips — is deliberate: the camera/mic never stop between
+    questions, so there's no window where a candidate could pause recording
+    to check a phone or notes unobserved. See interview_portal.html's
+    sessionRecorder / finalizeInterviewSubmission() for the capture side.
+
+    Expects multipart/form-data: interview_id, video (file — optional but
+    strongly recommended; without it, proctoring/emotion analysis is skipped
+    and only keyword/voice scores are used).
+    """
+    if request.method != 'POST':
+        return JsonResponse({'error': 'POST required'}, status=405)
+
+    interview_id = request.POST.get('interview_id')
+    video_file = request.FILES.get('video')
+
+    if not interview_id:
+        # Backward-compat: also accept a plain JSON body with interview_id
+        try:
+            data = json.loads(request.body or b'{}')
+            interview_id = data.get('interview_id')
+        except json.JSONDecodeError:
+            pass
+
+    if not interview_id:
+        return JsonResponse({'error': 'interview_id required'}, status=400)
+
+    try:
+        interview = Interview.objects.get(id=interview_id)
+    except Interview.DoesNotExist:
+        return JsonResponse({'error': 'Interview not found'}, status=404)
+
+    responses = InterviewResponse.objects.filter(interview=interview)
+
+    if not responses.exists():
+        return JsonResponse({'error': 'No responses found'}, status=400)
+
+    avg_keyword = responses.aggregate(avg=Avg('keyword_score'))['avg'] or 0
+    avg_confidence = responses.aggregate(avg=Avg('confidence_score'))['avg'] or 0
+
+    # ---- Full-session video analysis: facial emotion + proctoring ----
+    facial_summary = {}
+    proctoring_summary = {'flags': [], 'clean': True}
+
+    if video_file:
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.webm') as tmp:
+            for chunk in video_file.chunks():
+                tmp.write(chunk)
+            video_path = tmp.name
+        try:
+            # Sample every 2s across the WHOLE interview. That's enough
+            # resolution to catch a sustained glance at a phone/notes without
+            # having to decode every single frame of a multi-minute clip.
+            facial_summary = analyze_video_emotions(video_path, sample_interval=2.0)
+            proctoring_summary = analyze_video_proctoring(video_path, sample_interval=2.0)
+        except Exception as e:
+            logger.error(f"Full-session video analysis failed for interview {interview_id}: {e}")
+        finally:
+            os.unlink(video_path)
+
+        # Persist the raw full-interview recording for HR review.
+        video_file.seek(0)
+        interview.full_recording = video_file
+        interview.save(update_fields=['full_recording'])
+    else:
+        logger.warning(f"complete_interview_api called for interview {interview_id} with no video attached")
+
+    unique_flags = sorted(set(proctoring_summary.get('flags', [])))
+    flagged_for_review = len(unique_flags) > 0
+
+    # Voice signal summary still comes from the per-question audio clips
+    # saved by submit_answer_api (transcription/confidence is inherently a
+    # per-answer thing, unlike proctoring which needs the whole timeline).
+    voice_confidences = []
+    pitches = []
+    for r in responses:
+        va = r.voice_analysis if isinstance(r.voice_analysis, dict) else {}
+        if va.get('confidence_score') is not None:
+            voice_confidences.append(va['confidence_score'])
+        if va.get('pitch') is not None:
+            pitches.append(va['pitch'])
+
+    emotion_analysis_summary = {
+        'dominant_emotion': facial_summary.get('dominant_emotion'),
+        'emotion_distribution': facial_summary.get('emotion_distribution'),
+        'positive_ratio': facial_summary.get('positive_ratio'),
+        'frames_analyzed': facial_summary.get('total_frames_analyzed'),
+        'proctoring': proctoring_summary,
+    }
+    voice_analysis_summary = {
+        'avg_confidence': round(sum(voice_confidences) / len(voice_confidences), 3) if voice_confidences else None,
+        'avg_pitch': round(sum(pitches) / len(pitches), 2) if pitches else None,
+    }
+
+    overall = (avg_keyword + avg_confidence) / 2 if avg_confidence else avg_keyword
+    recommendation = 'recommended' if (overall >= 0.6 and not flagged_for_review) else 'not_recommended'
+    notes = f"Proctoring flags raised: {', '.join(unique_flags)}" if unique_flags else ''
+
+    evaluation, created = InterviewEvaluation.objects.update_or_create(
+        interview=interview,
+        defaults={
+            'overall_score': overall,
+            'keyword_score_avg': avg_keyword,
+            'confidence_score_avg': avg_confidence,
+            'emotion_analysis': emotion_analysis_summary,
+            'voice_analysis_summary': voice_analysis_summary,
+            'recommendation': recommendation,
+            'notes': notes,
         }
-        for r in responses
-    ]
+    )
+
+    interview.status = 'completed'
+    interview.completed_date = timezone.now()
+    interview.save()
+
+    candidate = interview.candidate
+    candidate.status = 'interview_completed'
+    candidate.save()
+
+    # NOTE: overall_score/keyword_score_avg/confidence_score_avg are stored
+    # on InterviewEvaluation as 0-1 fractions (unchanged from before), but the
+    # portal template displays them as "xx/100" and color-codes at 60/30 —
+    # so the response below scales them to 0-100 for display. This also fixes
+    # a pre-existing bug: the old response never actually included a nested
+    # "evaluation" object, which is what interview_portal.html reads — it was
+    # silently always falling through to the debug-info branch.
+    return JsonResponse({
+        'success': True,
+        'proctoring_flags': unique_flags,
+        'total_responses': responses.count(),
+        'evaluation': {
+            'overall_score': round(overall * 100, 1),
+            'keyword_score_avg': round(avg_keyword * 100, 1),
+            'confidence_score_avg': round(avg_confidence * 100, 1),
+            'recommendation': evaluation.recommendation,
+        },
+    })
+
+
+def interview_portal_questions_api(request):
+    """
+    Returns this interview's real, server-generated question set (by token),
+    for the portal page to render instead of the old hardcoded 5-question JS
+    array. Add a route for this in urls.py, e.g.:
+        path('portal-questions/', views.interview_portal_questions_api, name='interview_portal_questions'),
+    and, ideally, call get_or_create_interview_questions(interview) directly
+    from whatever view renders interview_portal.html so the questions are
+    embedded server-side at page load instead of fetched after — this
+    endpoint is provided as a drop-in option if that's not convenient.
+    """
+    token = request.GET.get('token')
+    if not token:
+        return JsonResponse({'success': False, 'error': 'token required'}, status=400)
+
+    try:
+        interview = Interview.objects.get(access_token=token)
+    except Interview.DoesNotExist:
+        return JsonResponse({'success': False, 'error': 'Interview not found'}, status=404)
+
+    questions = get_or_create_interview_questions(interview)
+    return JsonResponse({'success': True, 'interview_id': interview.id, 'questions': questions})
+
+
+def interview_info(request):
+    """Get interview info by token"""
+    token = request.GET.get('token')
+    if not token:
+        return JsonResponse({'error': 'token required'}, status=400)
+
+    try:
+        interview = Interview.objects.get(access_token=token)
+    except Interview.DoesNotExist:
+        return JsonResponse({'error': 'Interview not found'}, status=404)
+
+    candidate = interview.candidate
+    job = candidate.applied_job
 
     return JsonResponse({
         'success': True,
         'interview': {
             'id': interview.id,
-            'candidate_id': interview.candidate_id,
-            'candidate_name': interview.candidate.full_name,
-            'job_title': interview.candidate.applied_job.title,
             'status': interview.status,
-            'scheduled_date': interview.scheduled_date,
-            'completed_date': interview.completed_date,
+            'scheduled_date': interview.scheduled_date.isoformat() if interview.scheduled_date else None,
+            'expires_at': interview.expires_at.isoformat() if interview.expires_at else None,
+            'is_expired': interview.expires_at and interview.expires_at < timezone.now(),
         },
-        'responses': response_data,
-        'evaluation': {
-            'overall_score': round(evaluation.overall_score * 100),
-            'keyword_score_avg': round(evaluation.keyword_score_avg * 100),
-            'confidence_score_avg': round(evaluation.confidence_score_avg * 100),
-            'recommendation': evaluation.recommendation,
-            'notes': evaluation.notes,
-        } if evaluation else None,
+        'candidate': {
+            'id': candidate.id,
+            'name': candidate.full_name,
+            'email': candidate.email,
+        },
+        'job': {
+            'id': job.id,
+            'title': job.title,
+            'department': job.department,
+        },
     })
 
 
-def evaluation_report_api(request, interview_id):
-    """Full evaluation report for a completed interview"""
-    interview = get_object_or_404(
-        Interview.objects.select_related('candidate', 'candidate__applied_job'),
-        id=interview_id
-    )
-    evaluation = get_object_or_404(InterviewEvaluation, interview=interview)
+# ============ HR PARTNER APIs ============
+
+def hr_dashboard_api(request):
+    """HR dashboard statistics"""
+    total_interviews = Interview.objects.count()
+    completed = Interview.objects.filter(status='completed').count()
+    in_progress = Interview.objects.filter(status='in_progress').count()
+    scheduled = Interview.objects.filter(status='scheduled').count()
+    pending = Interview.objects.filter(status='pending').count()
+
+    recent_evaluations = InterviewEvaluation.objects.select_related('interview__candidate').order_by('-created_at')[:5]
+
+    eval_data = []
+    for ev in recent_evaluations:
+        eval_data.append({
+            'candidate_name': ev.interview.candidate.full_name,
+            'job_title': ev.interview.candidate.applied_job.title,
+            'overall_score': ev.overall_score,
+            'recommendation': ev.recommendation,
+            'date': ev.created_at.isoformat(),
+        })
+
+    return JsonResponse({
+        'success': True,
+        'stats': {
+            'total_interviews': total_interviews,
+            'completed': completed,
+            'in_progress': in_progress,
+            'scheduled': scheduled,
+            'pending': pending,
+        },
+        'recent_evaluations': eval_data,
+    })
+
+
+def interview_list_api(request):
+    """List all interviews"""
+    status_filter = request.GET.get('status')
+    interviews = Interview.objects.select_related('candidate', 'candidate__applied_job').all()
+
+    if status_filter:
+        interviews = interviews.filter(status=status_filter)
+
+    data = []
+    for iv in interviews:
+        data.append({
+            'id': iv.id,
+            'candidate_name': iv.candidate.full_name,
+            'job_title': iv.candidate.applied_job.title,
+            'status': iv.status,
+            'scheduled_date': iv.scheduled_date.isoformat() if iv.scheduled_date else None,
+            'completed_date': iv.completed_date.isoformat() if iv.completed_date else None,
+            'has_evaluation': hasattr(iv, 'evaluation'),
+        })
+
+    return JsonResponse({'success': True, 'interviews': data})
+
+
+def interview_detail_api(request, interview_id):
+    """Get interview detail"""
+    interview = get_object_or_404(Interview, id=interview_id)
+    candidate = interview.candidate
     responses = InterviewResponse.objects.filter(interview=interview).order_by('question_index')
 
-    return JsonResponse({
-        'success': True,
-        'candidate': {
-            'id': interview.candidate.id,
-            'name': interview.candidate.full_name,
-            'email': interview.candidate.email,
-            'job_title': interview.candidate.applied_job.title,
-        },
-        'evaluation': {
-            'overall_score': round(evaluation.overall_score * 100),
-            'keyword_score_avg': round(evaluation.keyword_score_avg * 100),
-            'confidence_score_avg': round(evaluation.confidence_score_avg * 100),
-            'recommendation': evaluation.recommendation,
-            'notes': evaluation.notes,
-            'generated_at': evaluation.created_at,
-        },
-        'responses': [
-            {
-                'question_index': r.question_index,
-                'question_text': r.question_text,
-                'answer_text': r.answer_text,
-                'keyword_score': r.keyword_score,
-                'confidence_score': r.confidence_score,
-                'video_url': (r.video_file.url if r.video_file else None),
-            }
-            for r in responses
-        ],
-    })
+    response_data = []
+    for r in responses:
+        response_data.append({
+            'question_index': r.question_index,
+            'question_text': r.question_text,
+            'answer_text': r.answer_text,
+            'keyword_score': r.keyword_score,
+            'confidence_score': r.confidence_score,
+            'has_audio': bool(r.audio_file),
+            'created_at': r.created_at.isoformat(),
+        })
 
-
-def candidate_list_api(request):
-    """List all candidates, optionally filtered by status or job"""
-    candidates = Candidate.objects.select_related('applied_job').all()
-
-    status = request.GET.get('status')
-    if status:
-        candidates = candidates.filter(status=status)
-
-    job_id = request.GET.get('job_id')
-    if job_id:
-        candidates = candidates.filter(applied_job_id=job_id)
-
-    data = [
-        {
-            'id': c.id,
-            'name': c.full_name,
-            'email': c.email,
-            'phone': c.phone,
-            'job_title': c.applied_job.title,
-            'status': c.status,
-            'similarity_score': c.similarity_score,
-            'created_at': c.created_at,
+    evaluation_data = None
+    if hasattr(interview, 'evaluation'):
+        ev = interview.evaluation
+        emotion_analysis = ev.emotion_analysis if isinstance(ev.emotion_analysis, dict) else {}
+        evaluation_data = {
+            'overall_score': ev.overall_score,
+            'keyword_score_avg': ev.keyword_score_avg,
+            'confidence_score_avg': ev.confidence_score_avg,
+            'recommendation': ev.recommendation,
+            'notes': ev.notes,
+            'dominant_emotion': emotion_analysis.get('dominant_emotion'),
+            'proctoring_flags': emotion_analysis.get('proctoring', {}).get('flags', []),
+            'created_at': ev.created_at.isoformat(),
         }
-        for c in candidates
-    ]
-
-    return JsonResponse({'success': True, 'count': len(data), 'candidates': data})
-
-
-def candidate_detail_api(request, candidate_id):
-    """Details for a single candidate, including interview status if available"""
-    candidate = get_object_or_404(Candidate.objects.select_related('applied_job'), id=candidate_id)
-    interview = getattr(candidate, 'interview', None)
 
     return JsonResponse({
         'success': True,
+        'interview': {
+            'id': interview.id,
+            'status': interview.status,
+            'access_token': str(interview.access_token),
+            'scheduled_date': interview.scheduled_date.isoformat() if interview.scheduled_date else None,
+            'completed_date': interview.completed_date.isoformat() if interview.completed_date else None,
+            'expires_at': interview.expires_at.isoformat() if interview.expires_at else None,
+            # The single continuous recording covering the whole interview —
+            # this is what emotion/proctoring analysis actually ran on.
+            'full_recording_url': interview.full_recording.url if interview.full_recording else None,
+        },
         'candidate': {
             'id': candidate.id,
             'name': candidate.full_name,
             'email': candidate.email,
             'phone': candidate.phone,
-            'job_title': candidate.applied_job.title,
-            'status': candidate.status,
-            'similarity_score': candidate.similarity_score,
             'skills': candidate.skills,
-            'education': candidate.education,
-            'experience': candidate.experience,
-            'created_at': candidate.created_at,
         },
-        'interview': {
-            'id': interview.id,
-            'status': interview.status,
-            'scheduled_date': interview.scheduled_date,
-            'completed_date': interview.completed_date,
-        } if interview else None,
+        'job': {
+            'title': candidate.applied_job.title,
+            'department': candidate.applied_job.department,
+        },
+        'responses': response_data,
+        'evaluation': evaluation_data,
     })
 
 
-def debug_interview_responses(request, interview_id):
-    """Debug endpoint: dump raw responses for an interview"""
+def evaluation_report_api(request, interview_id):
+    """Get evaluation report for an interview"""
     interview = get_object_or_404(Interview, id=interview_id)
+
+    try:
+        evaluation = interview.evaluation
+    except InterviewEvaluation.DoesNotExist:
+        return JsonResponse({'error': 'Evaluation not found'}, status=404)
+
     responses = InterviewResponse.objects.filter(interview=interview).order_by('question_index')
 
-    data = [
-        {
-            'id': r.id,
-            'question_index': r.question_index,
-            'question_text': r.question_text,
-            'answer_text': r.answer_text,
+    question_scores = []
+    for r in responses:
+        question_scores.append({
+            'question': r.question_text,
             'keyword_score': r.keyword_score,
             'confidence_score': r.confidence_score,
-            'transcription': r.transcription,
-            'created_at': r.created_at,
-        }
-        for r in responses
-    ]
+        })
+
+    emotion_analysis = evaluation.emotion_analysis if isinstance(evaluation.emotion_analysis, dict) else {}
 
     return JsonResponse({
         'success': True,
-        'interview_id': interview.id,
-        'interview_status': interview.status,
-        'response_count': len(data),
+        'candidate_name': interview.candidate.full_name,
+        'job_title': interview.candidate.applied_job.title,
+        'overall_score': evaluation.overall_score,
+        'keyword_score_avg': evaluation.keyword_score_avg,
+        'confidence_score_avg': evaluation.confidence_score_avg,
+        'recommendation': evaluation.recommendation,
+        'notes': evaluation.notes,
+        'dominant_emotion': emotion_analysis.get('dominant_emotion'),
+        'proctoring_flags': emotion_analysis.get('proctoring', {}).get('flags', []),
+        'full_recording_url': interview.full_recording.url if interview.full_recording else None,
+        'question_breakdown': question_scores,
+        'generated_at': evaluation.created_at.isoformat(),
+    })
+
+
+def candidate_list_api(request):
+    """List all candidates"""
+    status_filter = request.GET.get('status')
+    job_filter = request.GET.get('job')
+
+    candidates = Candidate.objects.select_related('applied_job').all()
+
+    if status_filter:
+        candidates = candidates.filter(status=status_filter)
+    if job_filter:
+        candidates = candidates.filter(applied_job_id=job_filter)
+
+    data = []
+    for c in candidates:
+        data.append({
+            'id': c.id,
+            'name': c.full_name,
+            'email': c.email,
+            'phone': c.phone,
+            'status': c.status,
+            'similarity_score': c.similarity_score,
+            'job_title': c.applied_job.title,
+            'has_interview': hasattr(c, 'interview'),
+        })
+
+    return JsonResponse({'success': True, 'candidates': data})
+
+
+def candidate_detail_api(request, candidate_id):
+    """Get candidate detail"""
+    candidate = get_object_or_404(Candidate, id=candidate_id)
+
+    interview_data = None
+    if hasattr(candidate, 'interview'):
+        iv = candidate.interview
+        interview_data = {
+            'id': iv.id,
+            'status': iv.status,
+            'scheduled_date': iv.scheduled_date.isoformat() if iv.scheduled_date else None,
+        }
+
+    return JsonResponse({
+        'success': True,
+        'candidate': {
+            'id': candidate.id,
+            'first_name': candidate.first_name,
+            'last_name': candidate.last_name,
+            'full_name': candidate.full_name,
+            'email': candidate.email,
+            'phone': candidate.phone,
+            'skills': candidate.skills,
+            'education': candidate.education,
+            'experience': candidate.experience,
+            'status': candidate.status,
+            'similarity_score': candidate.similarity_score,
+            'created_at': candidate.created_at.isoformat(),
+        },
+        'job': {
+            'id': candidate.applied_job.id,
+            'title': candidate.applied_job.title,
+            'department': candidate.applied_job.department,
+        },
+        'interview': interview_data,
+    })
+
+
+# ============ DEBUG ============
+
+def debug_interview_responses(request, interview_id):
+    """Debug: view all responses for an interview"""
+    interview = get_object_or_404(Interview, id=interview_id)
+    responses = InterviewResponse.objects.filter(interview=interview).order_by('question_index')
+
+    data = []
+    for r in responses:
+        data.append({
+            'id': r.id,
+            'question_index': r.question_index,
+            'question_text': r.question_text,
+            'answer_text': r.answer_text[:200] + '...' if len(r.answer_text) > 200 else r.answer_text,
+            'keyword_score': r.keyword_score,
+            'confidence_score': r.confidence_score,
+            'emotion_data': r.emotion_data,
+            'has_audio': bool(r.audio_file),
+            'has_video': bool(r.video_file),
+            'created_at': r.created_at.isoformat(),
+        })
+
+    return JsonResponse({
+        'success': True,
+        'interview_id': interview_id,
+        'candidate': interview.candidate.full_name,
+        'total_responses': len(data),
         'responses': data,
     })

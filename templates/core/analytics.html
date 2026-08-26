@@ -89,8 +89,7 @@
 </div>
 
 <style>
-    /* Fixed-height wrappers so charts never grow taller as data increases.
-       position: relative is required for Chart.js's responsive resize logic. */
+
     .chart-container {
         position: relative;
         height: 300px;
@@ -99,8 +98,7 @@
     .chart-container-tall {
         height: 280px;
     }
-    /* When there are many bars/points, we scroll horizontally inside the
-       fixed-height box instead of squishing labels or growing the card. */
+
     .chart-container-scroll {
         overflow-x: auto;
         overflow-y: hidden;
@@ -108,7 +106,7 @@
     .chart-inner {
         position: relative;
         height: 100%;
-        /* min-width is set dynamically in JS based on number of data points */
+
         min-width: 100%;
     }
 </style>
@@ -116,7 +114,7 @@
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // Status Distribution Chart
+
     const statusData = JSON.parse('{{ status_distribution|safe }}');
     const statusLabels = statusData.map(d => d.status.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase()));
     const statusValues = statusData.map(d => d.count);
@@ -144,7 +142,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // Top Jobs Chart — width grows with the number of jobs, height stays fixed
+\
     const jobsData = JSON.parse('{{ top_jobs|safe }}');
     const jobsMinWidth = Math.max(jobsData.length * 70, 100); // 70px per bar minimum
     document.getElementById('jobsChartInner').style.minWidth = jobsMinWidth + 'px';
@@ -174,7 +172,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // Monthly Applications Chart — width grows with the number of months, height stays fixed
+
     const monthlyData = JSON.parse('{{ monthly_data|safe }}');
     const monthlyMinWidth = Math.max(monthlyData.length * 60, 100); // 60px per point minimum
     document.getElementById('monthlyChartInner').style.minWidth = monthlyMinWidth + 'px';

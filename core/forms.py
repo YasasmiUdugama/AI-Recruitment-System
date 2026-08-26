@@ -1,8 +1,4 @@
-"""
-Core App - Forms
-Used for candidate CV upload (single + bulk). Ported from the
-recruitment app's forms, adapted to core's JobDescription model.
-"""
+
 from django import forms
 from .models import JobDescription, Candidate
 

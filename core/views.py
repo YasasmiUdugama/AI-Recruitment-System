@@ -99,19 +99,6 @@ def job_delete(request, job_id):
 
 
 def candidate_upload(request):
-    """
-    BULK CV UPLOAD
-    --------------
-    Matches candidate_upload.html: a single, bulk-only upload flow.
-    Multiple CVs can be uploaded at once for one job. Each CV is:
-      1. Saved and parsed via parse_cv() - name, email, skills, education,
-         and experience are all extracted automatically from the CV text
-         (recruitment-sourced cv_parser.py)
-      2. Turned into a Candidate record
-      3. Scored against the job description via TF-IDF + Cosine Similarity
-         (core's ranking.ranker, same pipeline as the rest of the app)
-      4. Auto-shortlisted if it clears the threshold (core's shortlist app)
-    """
     if request.method == 'POST':
         form = BulkUploadForm(request.POST, request.FILES)
         if form.is_valid():
@@ -155,7 +142,7 @@ def candidate_upload(request):
                     logger.error(f"Bulk upload failed for {cv_file.name}: {e}")
                     failed_files.append((cv_file.name, str(e)))
 
-            # Rank the newly created candidates against the job description
+
             if created_candidates:
                 job_description = f"{job.title}\n{job.description}\n{job.required_skills}"
                 cv_texts = {
@@ -169,7 +156,7 @@ def candidate_upload(request):
                         candidate_map[candidate_id].similarity_score = score
                         candidate_map[candidate_id].save(update_fields=['similarity_score'])
 
-                    # Auto-shortlist top candidates from this batch
+
                     ranked_list = [(str(c.id), c.similarity_score) for c in created_candidates]
                     shortlisted = shortlist_candidates(ranked_list, threshold=threshold, top_n=top_n)
                     shortlisted_ids = {int(c[0]) for c in shortlisted}
@@ -228,7 +215,7 @@ def candidate_delete(request, candidate_id):
     """Delete candidate and their CV file"""
     candidate = get_object_or_404(Candidate, id=candidate_id)
     if request.method == 'POST':
-        # Optional: delete the physical CV file from storage
+
         if candidate.cv_file:
             candidate.cv_file.delete(save=False)
         candidate.delete()
@@ -266,7 +253,7 @@ def rank_candidates(request, job_id):
         messages.warning(request, 'No candidates with parsed CVs found for this job!')
         return redirect('job_detail', job_id=job.id)
 
-    # Prepare data for ranking
+
     job_description = f"{job.title}\n{job.description}\n{job.required_skills}"
     cv_texts = {}
     candidate_map = {}
@@ -275,10 +262,9 @@ def rank_candidates(request, job_id):
         cv_texts[str(candidate.id)] = candidate.cv_text
         candidate_map[str(candidate.id)] = candidate
 
-    # Rank using TF-IDF + Cosine Similarity
+
     ranked_results = rank_cvs(job_description, cv_texts)
 
-    # Update candidate scores
     for candidate_id, score in ranked_results:
         candidate = candidate_map[candidate_id]
         candidate.similarity_score = score
@@ -297,7 +283,6 @@ def shortlist_top_candidates(request, job_id):
         messages.warning(request, 'No candidates found for this job!')
         return redirect('job_detail', job_id=job.id)
 
-    # Get threshold from settings or request
     threshold = float(request.GET.get('threshold', 0.01))
     top_n = int(request.GET.get('top_n', 10))
 
@@ -306,7 +291,7 @@ def shortlist_top_candidates(request, job_id):
 
     shortlisted_ids = [int(c[0]) for c in shortlisted]
 
-    # Update status for shortlisted candidates
+
     shortlisted_count = 0
     for candidate in candidates:
         if candidate.id in shortlisted_ids and candidate.status == 'screening':
@@ -327,7 +312,7 @@ def send_interview_invitations(request, job_id):
     failed_count = 0
 
     for candidate in shortlisted:
-        # Create interview record
+
         interview, created = Interview.objects.get_or_create(
             candidate=candidate,
             defaults={

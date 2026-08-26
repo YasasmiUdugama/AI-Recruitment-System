@@ -187,9 +187,7 @@ def analyze_video_emotions(video_path, sample_interval=1.0):
 
 
 def get_emotion_summary(emotion_data):
-    """
-    Get a human-readable summary of emotion analysis
-    """
+
     if 'error' in emotion_data and emotion_data['error']:
         return f"Emotion analysis unavailable: {emotion_data['error']}"
 

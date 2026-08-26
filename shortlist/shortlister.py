@@ -1,8 +1,4 @@
-"""
-Candidate Shortlisting Module
-Automatically selects the top N candidates with the highest similarity scores.
-Applies a threshold filter to ensure minimum relevance.
-"""
+
 
 import logging
 
@@ -10,22 +6,7 @@ logger = logging.getLogger('ai_recruitment')
 
 
 def shortlist_candidates(ranked_results, threshold=0.01, top_n=10):
-    """
-    Shortlist top candidates from ranked results
 
-    Parameters:
-    -----------
-    ranked_results : list of tuples
-        List of (candidate_id, score) tuples, already sorted by score
-    threshold : float
-        Minimum similarity score to be considered for shortlisting
-    top_n : int
-        Maximum number of candidates to shortlist
-
-    Returns:
-    --------
-    list : Shortlisted candidates as (candidate_id, score) tuples
-    """
     if not ranked_results:
         logger.warning("No ranked results provided for shortlisting")
         return []
@@ -51,13 +32,7 @@ def shortlist_candidates(ranked_results, threshold=0.01, top_n=10):
 
 
 def get_shortlist_summary(ranked_results, threshold=0.01, top_n=10):
-    """
-    Get a summary of the shortlisting process
 
-    Returns:
-    --------
-    dict : Summary statistics
-    """
     total = len(ranked_results)
     above_threshold = len([r for r in ranked_results if r[1] >= threshold])
     shortlisted = shortlist_candidates(ranked_results, threshold, top_n)
