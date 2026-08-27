@@ -1,14 +1,4 @@
-"""
-CV Parser Module
-Extracts text from PDF and DOCX files using pdfplumber (preferred) / PyPDF2
-(fallback) and python-docx. Includes OCR fallback for scanned PDFs using
-pytesseract.
-Extracts structured information: email, skills, education, experience.
 
-Keyword lists (skills / education keywords / experience keywords) are no
-longer hardcoded in this file. They are loaded from an Excel workbook
-(see CV_KEYWORDS_XLSX below) so they can be maintained by non-developers.
-"""
 
 import os
 import re

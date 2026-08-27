@@ -18,6 +18,7 @@ def load_questions_from_excel(refresh=False):
     """
     Load all questions from the Excel sheet into a dictionary.
     Returns: {category: [list of question dicts]}
+    
     """
     global _question_cache
     if _question_cache is not None and not refresh:

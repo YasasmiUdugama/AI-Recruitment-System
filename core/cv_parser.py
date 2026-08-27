@@ -38,8 +38,8 @@ import openpyxl
 logger = logging.getLogger('ai_recruitment')
 
 
-TESSERACT_CMD = r'D:\Apps\HR Recruitment\Tesseract\tesseract.exe'
-POPPLER_PATH = r'D:\Apps\HR Recruitment\poppler-26.02.0\Library\bin'
+TESSERACT_CMD = r'D:\HR Recruitment System\Tesseract\tesseract.exe'
+POPPLER_PATH = r'D:\HR Recruitment System\poppler-26.02.0\Library\bin'
 
 if OCR_AVAILABLE:
 
@@ -352,11 +352,7 @@ def extract_text(file_path):
 
 
 def preprocess_text(text):
-    """
-    Preprocess extracted text to fix common PDF extraction issues:
-    - Merge emails with following text (e.g., gmail.comNo -> gmail.com No)
-    - Fix spaces around @
-    """
+
     if not text:
         return text
     

@@ -54,7 +54,7 @@ export TESSERACT_CMD="/usr/bin/tesseract"
 set EMAIL_HOST_USER=your-email@gmail.com
 set EMAIL_HOST_PASSWORD=your-app-password
 ```
-
+#python manage.py makemigrations
 5. Run migrations:
 ```bash
 python manage.py migrate

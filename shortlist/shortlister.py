@@ -51,24 +51,7 @@ def get_shortlist_summary(ranked_results, threshold=0.01, top_n=10):
 
 
 def auto_shortlist(job, candidates_queryset, threshold=0.01, top_n=10):
-    """
-    Automatically shortlist candidates for a job
 
-    Parameters:
-    -----------
-    job : JobDescription
-        The job description object
-    candidates_queryset : QuerySet
-        Django queryset of Candidate objects
-    threshold : float
-        Minimum similarity score
-    top_n : int
-        Maximum number to shortlist
-
-    Returns:
-    --------
-    list : Shortlisted Candidate objects
-    """
     from ranking.ranker import batch_rank
 
     job_text = f"{job.title}\n{job.description}\n{job.required_skills}"
