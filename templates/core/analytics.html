@@ -142,7 +142,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-\
     const jobsData = JSON.parse('{{ top_jobs|safe }}');
     const jobsMinWidth = Math.max(jobsData.length * 70, 100); // 70px per bar minimum
     document.getElementById('jobsChartInner').style.minWidth = jobsMinWidth + 'px';
