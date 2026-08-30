@@ -291,7 +291,7 @@ def extract_email(text):
 
 
 def extract_skills(text, skills_list=None):
-    """Extract skills from CV text using the Skills sheet from the workbook"""
+
     if not text:
         return ""
 
@@ -311,7 +311,7 @@ def extract_skills(text, skills_list=None):
 
 
 def extract_education(text, education_keywords=None):
-    """Extract education information from CV text"""
+
     if not text:
         return ""
 
@@ -333,7 +333,7 @@ def extract_education(text, education_keywords=None):
 
 
 def extract_experience(text, experience_keywords=None):
-    """Extract work experience from CV text"""
+
     if not text:
         return ""
 

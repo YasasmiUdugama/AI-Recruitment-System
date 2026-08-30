@@ -12,7 +12,6 @@ logger = logging.getLogger('ai_recruitment')
 
 
 def send_invitation_api(request, candidate_id):
-    """API to send interview invitation to a candidate"""
     if request.method == 'POST':
         candidate = get_object_or_404(Candidate, id=candidate_id)
 
@@ -68,7 +67,6 @@ def send_rejection_api(request, candidate_id):
 
 
 def send_selection_api(request, candidate_id):
-    """API to send selection email"""
     if request.method == 'POST':
         candidate = get_object_or_404(Candidate, id=candidate_id)
 
@@ -95,7 +93,6 @@ def send_selection_api(request, candidate_id):
 
 
 def email_logs(request):
-    """View all email logs"""
     logs = EmailLog.objects.all().order_by('-sent_at')
     return render(request, 'emailer/email_logs.html', {'logs': logs})
 

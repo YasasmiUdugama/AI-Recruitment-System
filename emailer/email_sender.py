@@ -26,24 +26,7 @@ def send_email(to_email, subject, body, html_body=None):
 
 
 def send_interview_invitation(to_email, candidate_name, interview_token, company_name="Our Company"):
-    """
-    Send interview invitation email to shortlisted candidate
 
-    Parameters:
-    -----------
-    to_email : str
-        Candidate email
-    candidate_name : str
-        Candidate full name
-    interview_token : uuid
-        Unique interview access token
-    company_name : str
-        Company name
-
-    Returns:
-    --------
-    tuple : (success, error_message)
-    """
     interview_url = f"http://localhost:8000/interview/{interview_token}/"
 
     subject = f"Interview Invitation - {company_name}"
@@ -94,13 +77,7 @@ HR Team
 
 
 def send_rejection_email(to_email, candidate_name, company_name="Our Company"):
-    """
-    Send rejection email to candidate
-
-    Returns:
-    --------
-    tuple : (success, error_message)
-    """
+   
     subject = f"Application Status Update - {company_name}"
 
     body = f"""Dear {candidate_name},

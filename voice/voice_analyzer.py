@@ -158,10 +158,8 @@ def analyze_voice_features(audio_file_path):
 
 def full_voice_analysis(audio_file_path, whisper_model='base'):
 
-    # Get transcription
     transcription = speech_to_text(audio_file_path, whisper_model)
 
-    # Get voice features
     voice_features = analyze_voice_features(audio_file_path)
 
     return {

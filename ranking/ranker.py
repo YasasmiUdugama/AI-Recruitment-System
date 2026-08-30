@@ -10,7 +10,7 @@ logger = logging.getLogger('ai_recruitment')
 
 
 def preprocess_text(text):
-    """Clean and preprocess text for better TF-IDF results"""
+
     if not text:
         return ""
 
@@ -88,9 +88,7 @@ def rank_cvs(job_description, cv_texts):
 
 
 def get_top_keywords(job_description, cv_text, n_keywords=10):
-    """
-    Extract top matching keywords between job description and a CV
-    """
+
     try:
         from sklearn.feature_extraction.text import TfidfVectorizer
 

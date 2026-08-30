@@ -103,11 +103,7 @@ _FALLBACK_EXPERIENCE = ['experience', 'worked', 'managed', 'developed']
 
 
 def _read_single_column_sheet(ws):
-    """Read a (Keyword, Active) or (Skill, Category, Active) sheet.
 
-    Returns the list of values in column A where the last column
-    ('Active') is not explicitly 'No'/'FALSE'/0. Header row is skipped.
-    """
     values = []
     rows = list(ws.iter_rows(min_row=2, values_only=True))
     for row in rows:
@@ -225,8 +221,7 @@ EXCLUDE_EMAIL_PATTERNS = [
 
 
 def _extract_pdf_text_pdfplumber(file_path):
-    """Extract text using pdfplumber. Much less prone to inserting spurious
-    mid-word spaces than PyPDF2 on Word/LibreOffice-exported PDFs."""
+
     text = ""
     with pdfplumber.open(file_path) as pdf:
         for page in pdf.pages:
@@ -237,8 +232,7 @@ def _extract_pdf_text_pdfplumber(file_path):
 
 
 def _extract_pdf_text_pypdf2(file_path):
-    """Fallback extractor. Known to split words on some fonts (see note
-    above _extract_pdf_text_pdfplumber)."""
+
     text = ""
     with open(file_path, "rb") as file:
         reader = PyPDF2.PdfReader(file)
@@ -382,7 +376,6 @@ def is_personal_email(email):
 
 
 def clean_email(email):
-    """Fix emails where TLD got merged with following text (e.g., gmail.comno -> gmail.com)"""
     email = email.lower().strip()
     parts = email.split('@')
     if len(parts) != 2:
@@ -400,7 +393,6 @@ def clean_email(email):
 
 
 def extract_email(text):
-    """Extract the candidate's email from text. Prioritizes emails found early in the document."""
     if not text:
         return ""
 
@@ -445,7 +437,6 @@ def extract_email(text):
 
 
 def looks_like_name(words):
-    """Check if a list of words looks like a person's name"""
     if not (2 <= len(words) <= 4):
         return False
     
@@ -481,10 +472,7 @@ def looks_like_name(words):
 
 
 def extract_name_from_text(text, email=""):
-    """
-    Extract candidate name from CV text.
-    Returns (first_name, last_name)
-    """
+   
     if not text:
         return "", ""
 
@@ -492,9 +480,8 @@ def extract_name_from_text(text, email=""):
     if not lines:
         return "", ""
 
-    # ==================================================================
+
     # STRATEGY 1: Explicit "Name:" or "Full Name:" labels (first 30 lines)
-    # ==================================================================
     name_label_patterns = [
         r'[Nn]ame\s*[:\-]\s*([A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+){1,3})',
         r'[Ff]ull\s*[Nn]ame\s*[:\-]\s*([A-Z][a-zA-Z]+(?:\s+[A-Z][a-zA-Z]+){1,3})',
@@ -511,9 +498,8 @@ def extract_name_from_text(text, email=""):
             if len(parts) >= 2:
                 return parts[0], ' '.join(parts[1:])
 
-    # ==================================================================
+
     # STRATEGY 2: First 3 lines - very often the candidate's name is here
-    # ==================================================================
     for line_idx in range(min(3, len(lines))):
         line = lines[line_idx]
         # Clean the line - remove common prefixes
@@ -526,9 +512,8 @@ def extract_name_from_text(text, email=""):
                 words = [w.title() for w in words]
             return words[0], ' '.join(words[1:])
 
-    # ==================================================================
+
     # STRATEGY 3: Scan first 15 lines for 2-4 capitalized words
-    # ==================================================================
     for line in lines[:15]:
         if len(line) > 60 or len(line) < 4:
             continue
@@ -565,9 +550,7 @@ def extract_name_from_text(text, email=""):
                     if not any(w.lower() in title_indicators for w in candidate_words):
                         return candidate_words[0], ' '.join(candidate_words[1:])
 
-    # ==================================================================
     # STRATEGY 4: Extract from email local part
-    # ==================================================================
     if email and '@' in email:
         local = email.split('@')[0]
         local = re.sub(r'[._\-\d]', ' ', local)
@@ -581,7 +564,6 @@ def extract_name_from_text(text, email=""):
 
 
 def extract_skills(text, skills_list=None):
-    """Extract skills from CV text using the Skills sheet from the workbook"""
     if not text:
         return ""
     if skills_list is None:
@@ -596,7 +578,7 @@ def extract_skills(text, skills_list=None):
 
 
 def extract_education(text, education_keywords=None):
-    """Extract education information from CV text"""
+
     if not text:
         return ""
     if education_keywords is None:
@@ -613,7 +595,6 @@ def extract_education(text, education_keywords=None):
 
 
 def extract_experience(text, experience_keywords=None):
-    """Extract work experience from CV text"""
     if not text:
         return ""
     if experience_keywords is None:
@@ -630,7 +611,6 @@ def extract_experience(text, experience_keywords=None):
 
 
 def parse_cv(file_path):
-    """Complete CV parsing - extracts all information"""
     result = {
         'text': '',
         'email': '',

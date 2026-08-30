@@ -15,11 +15,7 @@ _question_cache = None
 
 
 def load_questions_from_excel(refresh=False):
-    """
-    Load all questions from the Excel sheet into a dictionary.
-    Returns: {category: [list of question dicts]}
-    
-    """
+
     global _question_cache
     if _question_cache is not None and not refresh:
         return _question_cache
@@ -121,7 +117,7 @@ def get_question_by_keywords(job_skills, count=5):
 
 
 def reload_questions():
-    """Force reload questions from Excel (useful after updates)"""
+
     global _question_cache
     _question_cache = None
     return load_questions_from_excel()

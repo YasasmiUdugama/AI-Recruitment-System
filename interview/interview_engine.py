@@ -5,10 +5,6 @@ logger = logging.getLogger('ai_recruitment')
 
 
 def generate_interview_questions(candidate, count=5):
-    """
-    Generate interview questions for a candidate based on their job/skills.
-    Replaces old default_questions and tech_questions logic.
-    """
     job = candidate.applied_job
     required_skills = getattr(job, 'required_skills', '')
     job_title = job.title.lower() if job.title else ''

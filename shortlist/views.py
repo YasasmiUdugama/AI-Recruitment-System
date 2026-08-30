@@ -27,10 +27,8 @@ def shortlist_api(request, job_id):
     if not ranked_list:
         return JsonResponse({'success': False, 'error': 'No ranked candidates found. Run ranking first.'})
 
-    # Get summary
     summary = get_shortlist_summary(ranked_list, threshold, top_n)
 
-    # Apply shortlisting
     shortlisted_ids = summary['shortlisted_ids']
 
     shortlisted_candidates = []
@@ -53,5 +51,5 @@ def shortlist_api(request, job_id):
 
 
 def shortlist_info(request):
-    """Info page about shortlisting"""
+
     return render(request, 'shortlist/shortlist_info.html')

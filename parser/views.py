@@ -10,7 +10,6 @@ logger = logging.getLogger('ai_recruitment')
 
 
 def parse_cv_api(request):
-    """API endpoint to parse a CV file"""
     if request.method == 'POST' and request.FILES.get('cv_file'):
         cv_file = request.FILES['cv_file']
 
@@ -36,5 +35,5 @@ def parse_cv_api(request):
 
 
 def parser_info(request):
-    """Info page about the CV parser"""
+
     return render(request, 'parser/parser_info.html')

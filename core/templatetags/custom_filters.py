@@ -5,7 +5,7 @@ register = template.Library()
 
 @register.filter
 def mul(value, arg):
-    """Multiply value by arg"""
+
     try:
         return float(value) * float(arg)
     except (ValueError, TypeError):
@@ -14,7 +14,7 @@ def mul(value, arg):
 
 @register.filter
 def div(value, arg):
-    """Divide value by arg"""
+
     try:
         if float(arg) == 0:
             return 0
@@ -25,7 +25,7 @@ def div(value, arg):
 
 @register.filter
 def sub(value, arg):
-    """Subtract arg from value"""
+
     try:
         return float(value) - float(arg)
     except (ValueError, TypeError):
@@ -34,7 +34,6 @@ def sub(value, arg):
 
 @register.filter
 def add_filter(value, arg):
-    """Add arg to value"""
     try:
         return float(value) + float(arg)
     except (ValueError, TypeError):

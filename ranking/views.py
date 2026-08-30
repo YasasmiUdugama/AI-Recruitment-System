@@ -9,7 +9,7 @@ logger = logging.getLogger('ai_recruitment')
 
 
 def rank_job_candidates(request, job_id):
-    """Rank candidates for a specific job"""
+
     job = get_object_or_404(JobDescription, id=job_id)
 
     # Get job description text

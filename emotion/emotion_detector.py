@@ -205,9 +205,7 @@ def get_emotion_summary(emotion_data):
 
 
 def calculate_emotion_score(emotion_data):
-    """
-    Calculate a numerical score from emotion data (0-1 scale)
-    """
+
     if 'error' in emotion_data and emotion_data['error']:
         return 0.5  # Default neutral score
 

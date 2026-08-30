@@ -23,12 +23,7 @@ logger = logging.getLogger('ai_recruitment')
 
 
 def get_or_create_interview_questions(interview):
-    """
-    Return this interview's cached question set (text + keywords), generating
-    and storing it on first access via Interview.questions_json. This is the
-    single source of truth both the portal template and submit_answer_api
-    read from, so scoring can't be forged by whatever the client posts.
-    """
+
     if interview.questions_json:
         return interview.questions_json
 
@@ -138,17 +133,7 @@ def save_response_api(request):
 
 @csrf_exempt
 def submit_answer_api(request):
-    """
-    Consolidated per-question submission — handles the SHORT audio clip the
-    candidate records for a single answer (transcription + keyword scoring +
-    voice confidence). It does NOT handle video anymore: emotion and
-    proctoring (phone/notes/multiple-people) analysis now run ONCE, over the
-    full continuous interview recording, in complete_interview_api — see that
-    function's docstring for why (this is what closes the "pause recording
-    between questions to check a phone" gap).
 
-    Expects multipart/form-data: interview_id, question_index, question_text, audio (file)
-    """
     if request.method != 'POST':
         return JsonResponse({'error': 'POST required'}, status=405)
 
@@ -261,22 +246,7 @@ def upload_video_api(request):
 
 @csrf_exempt
 def complete_interview_api(request):
-    """
-    Complete an interview: analyze the ONE continuous recording that spans
-    start-to-finish (uploaded here as multipart 'video'), aggregate the
-    per-question keyword/voice scores already saved via submit_answer_api,
-    and produce the final evaluation.
 
-    Analyzing a single full-length recording — instead of separate per-
-    question clips — is deliberate: the camera/mic never stop between
-    questions, so there's no window where a candidate could pause recording
-    to check a phone or notes unobserved. See interview_portal.html's
-    sessionRecorder / finalizeInterviewSubmission() for the capture side.
-
-    Expects multipart/form-data: interview_id, video (file — optional but
-    strongly recommended; without it, proctoring/emotion analysis is skipped
-    and only keyword/voice scores are used).
-    """
     if request.method != 'POST':
         return JsonResponse({'error': 'POST required'}, status=405)
 
@@ -407,16 +377,7 @@ def complete_interview_api(request):
 
 
 def interview_portal_questions_api(request):
-    """
-    Returns this interview's real, server-generated question set (by token),
-    for the portal page to render instead of the old hardcoded 5-question JS
-    array. Add a route for this in urls.py, e.g.:
-        path('portal-questions/', views.interview_portal_questions_api, name='interview_portal_questions'),
-    and, ideally, call get_or_create_interview_questions(interview) directly
-    from whatever view renders interview_portal.html so the questions are
-    embedded server-side at page load instead of fetched after — this
-    endpoint is provided as a drop-in option if that's not convenient.
-    """
+ 
     token = request.GET.get('token')
     if not token:
         return JsonResponse({'success': False, 'error': 'token required'}, status=400)
@@ -502,7 +463,7 @@ def hr_dashboard_api(request):
 
 
 def interview_list_api(request):
-    """List all interviews"""
+
     status_filter = request.GET.get('status')
     interviews = Interview.objects.select_related('candidate', 'candidate__applied_job').all()
 

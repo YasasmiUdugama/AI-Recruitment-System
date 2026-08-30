@@ -11,7 +11,6 @@ def shortlist_candidates(ranked_results, threshold=0.01, top_n=10):
         logger.warning("No ranked results provided for shortlisting")
         return []
 
-    # Step 1: Filter by threshold
     shortlisted = []
     for candidate in ranked_results:
         file_name = candidate[0]
@@ -20,7 +19,6 @@ def shortlist_candidates(ranked_results, threshold=0.01, top_n=10):
         if score >= threshold:
             shortlisted.append(candidate)
 
-    # Step 2: Limit by top N (if given)
     if top_n is not None:
         original_count = len(shortlisted)
         shortlisted = shortlisted[:top_n]
